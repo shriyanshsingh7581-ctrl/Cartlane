@@ -45,7 +45,7 @@ const ToastBanner: React.FC = () => {
   if (!toast) return null;
 
   return (
-    <div className="fixed bottom-16 md:bottom-6 left-4 right-4 md:left-auto md:right-6 z-50 md:max-w-sm px-5 py-3.5 shadow-xl border text-xs font-medium tracking-wide bg-[#141413] text-[#FAF8F5] border-[#3F3B36]">
+    <div className="fixed bottom-16 md:bottom-6 left-4 right-4 md:left-auto md:right-6 z-50 md:max-w-sm px-5 py-3.5 shadow-xl rounded-xs border text-xs font-semibold tracking-wide bg-[#212121] text-white border-[#388E3C]">
       {toast.text}
     </div>
   );
@@ -56,7 +56,7 @@ export default function App() {
     <BrowserRouter>
       <StoreProvider>
         <ScrollToTop />
-        <div className="min-h-screen flex flex-col justify-between bg-[#FAF8F5] text-[#141413]">
+        <div className="min-h-screen flex flex-col justify-between bg-[#F1F3F6] text-[#212121]">
           <Navbar />
           <CartDrawer />
           <div className="flex-1">

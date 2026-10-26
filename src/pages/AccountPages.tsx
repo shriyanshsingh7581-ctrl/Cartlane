@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import {
-  CheckCircle2,
   Heart,
   LogOut,
   MapPin,
@@ -11,8 +10,6 @@ import {
   RotateCcw,
   Search,
   Shield,
-  ShieldCheck,
-  Sparkles,
   Tag,
   Trash2,
   Truck,
@@ -42,66 +39,71 @@ export const LoginPage: React.FC = () => {
   }, [user, isAdmin]);
 
   return (
-    <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-24 md:py-16">
-      <div className="grid grid-cols-1 md:grid-cols-12 border border-[#E5E0D8] bg-white overflow-hidden shadow-xs">
-        {/* Left: Member Benefits Showcase */}
-        <div className="md:col-span-6 bg-[#141413] text-[#FAF8F5] p-6 sm:p-10 flex flex-col justify-between space-y-6">
+    <main className="max-w-4xl mx-auto px-3 sm:px-6 pt-6 pb-24 md:py-14">
+      <div className="grid grid-cols-1 md:grid-cols-12 border border-[#E0E0E0] bg-white rounded-xs overflow-hidden shadow-md">
+        {/* Left: Iconic Flipkart Blue Login Sidebar */}
+        <div className="md:col-span-5 bg-[#2874F0] text-white p-6 sm:p-10 flex flex-col justify-between space-y-6">
           <div className="space-y-3">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-[#D4AF37] font-semibold">
-              Cartlane Gentlemen&apos;s Club
-            </p>
-            <h1 className="font-serif-display text-3xl sm:text-4xl font-bold text-white leading-tight">
-              Your Personal Grooming Concierge
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
+              Login
             </h1>
-            <p className="text-xs text-[#D6D3D1] leading-relaxed">
-              Sign in with your Google account to unlock member-only privilege coupons, real-time Flipkart-style shipment tracking, and 1-tap address checkout.
+            <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
+              Get access to your Orders, Wishlist, Saved Addresses, and exclusive Cartlane privilege coupons.
             </p>
           </div>
 
-          <div className="space-y-3 pt-2 border-t border-[#2C2A27] text-xs text-[#E5E0D8]">
-            <div className="flex items-center gap-2.5">
-              <Tag className="w-4 h-4 text-[#D4AF37] shrink-0" />
-              <span>Instant access to ROYAL15 &amp; CHARCOAL20 member coupons</span>
+          <div className="space-y-2.5 pt-4 border-t border-white/20 text-xs text-white/95">
+            <div className="flex items-center gap-2">
+              <Tag className="w-4 h-4 text-[#FFE500] shrink-0" />
+              <span>Extra 15% OFF with code ROYAL15</span>
             </div>
-            <div className="flex items-center gap-2.5">
-              <Truck className="w-4 h-4 text-[#D4AF37] shrink-0" />
-              <span>Live chronological shipment &amp; courier hub tracking</span>
+            <div className="flex items-center gap-2">
+              <Truck className="w-4 h-4 text-[#FFE500] shrink-0" />
+              <span>Live Order &amp; Courier Hub Tracking</span>
             </div>
-            <div className="flex items-center gap-2.5">
-              <Heart className="w-4 h-4 text-[#D4AF37] shrink-0" />
-              <span>Cloud-synced wishlist and grooming bag across mobile &amp; desktop</span>
+            <div className="flex items-center gap-2">
+              <Heart className="w-4 h-4 text-[#FFE500] shrink-0" />
+              <span>Synced Cart &amp; Wishlist across devices</span>
             </div>
           </div>
         </div>
 
         {/* Right: Sign-In Action */}
-        <div className="md:col-span-6 p-6 sm:p-10 flex flex-col justify-center space-y-6 bg-[#FAF8F5]">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
-              Verified Member Access
+        <div className="md:col-span-7 p-6 sm:p-10 flex flex-col justify-between space-y-8 bg-white">
+          <div className="space-y-4">
+            <p className="text-xs font-extrabold uppercase tracking-wider text-[#2874F0]">
+              Cartlane Verified Account
             </p>
-            <h2 className="font-serif-display text-2xl sm:text-3xl font-bold text-[#141413]">
-              Sign In to Cartlane
+            <h2 className="text-xl sm:text-2xl font-extrabold text-[#212121]">
+              Continue with Google Authentication
             </h2>
-            <p className="text-xs text-[#57534E] leading-relaxed">
-              We use passwordless Google Authentication for bank-grade account security and instant verification.
+            <p className="text-xs text-[#878787] leading-relaxed">
+              By continuing, you agree to Cartlane&apos;s{' '}
+              <Link to="/policies/terms" className="text-[#2874F0] hover:underline">
+                Terms of Use
+              </Link>{' '}
+              and{' '}
+              <Link to="/policies/privacy" className="text-[#2874F0] hover:underline">
+                Privacy Policy
+              </Link>
+              .
             </p>
+
+            <button
+              type="button"
+              onClick={loginWithGoogle}
+              className="w-full py-3.5 bg-[#FB641B] hover:bg-[#E85812] text-white text-xs sm:text-sm font-extrabold uppercase tracking-wider rounded-xs shadow-sm transition-colors"
+            >
+              Sign In with Google
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={loginWithGoogle}
-            className="w-full py-4 bg-[#141413] hover:bg-[#8C6239] text-[#FAF8F5] text-xs font-semibold uppercase tracking-widest transition-colors"
-          >
-            Continue with Google Sign-In
-          </button>
-
-          <div className="pt-4 border-t border-[#E5E0D8] flex items-center justify-between text-[11px] text-[#78716C]">
-            <Link to="/track-order" className="hover:text-[#141413] underline">
-              Track an Existing Order
+          <div className="pt-4 border-t border-[#F0F0F0] flex items-center justify-between text-xs font-bold text-[#2874F0]">
+            <Link to="/track-order" className="hover:underline">
+              Track an Existing Order →
             </Link>
-            <Link to="/policies/privacy" className="hover:text-[#141413] underline">
-              Privacy &amp; Data Policy
+            <Link to="/products" className="hover:underline">
+              Browse Store →
             </Link>
           </div>
         </div>
@@ -136,18 +138,15 @@ export const AccountDashboardPage: React.FC = () => {
     initialTab
   );
 
-  // Sync tab when URL route changes (/account, /account/orders, /account/addresses, /account/profile)
   useEffect(() => {
     if (location.pathname.includes('/addresses')) setActiveTab('addresses');
     else if (location.pathname.includes('/profile')) setActiveTab('profile');
     else setActiveTab('orders');
   }, [location.pathname]);
 
-  // Profile form state
   const [displayName, setDisplayName] = useState(userProfile?.displayName || '');
   const [phone, setPhone] = useState(userProfile?.phone || '');
 
-  // New Address state
   const [addrForm, setAddrForm] = useState({
     fullName: '',
     phone: '',
@@ -169,20 +168,22 @@ export const AccountDashboardPage: React.FC = () => {
 
   if (!user) {
     return (
-      <main className="max-w-lg mx-auto px-6 py-20 text-center space-y-5">
-        <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
-          Sign In to Your Cartlane Account
-        </h1>
-        <p className="text-xs text-[#57534E]">
-          Please sign in with your Google account to view your profile, saved addresses, and order history.
-        </p>
-        <button
-          type="button"
-          onClick={loginWithGoogle}
-          className="px-7 py-3.5 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest"
-        >
-          Sign In with Google
-        </button>
+      <main className="max-w-lg mx-auto px-4 py-16 text-center">
+        <div className="p-8 bg-white border border-[#E0E0E0] rounded-xs space-y-4 shadow-2xs">
+          <h1 className="text-2xl font-extrabold text-[#212121]">
+            Login to view your Account
+          </h1>
+          <p className="text-xs text-[#878787]">
+            Sign in with your Google account to manage orders, addresses, and profile settings.
+          </p>
+          <button
+            type="button"
+            onClick={loginWithGoogle}
+            className="px-8 py-3 bg-[#FB641B] text-white text-xs font-extrabold uppercase tracking-wider rounded-xs"
+          >
+            Login with Google
+          </button>
+        </div>
       </main>
     );
   }
@@ -213,341 +214,359 @@ export const AccountDashboardPage: React.FC = () => {
   };
 
   return (
-    <main className="max-w-[1440px] mx-auto px-3 sm:px-6 pt-5 pb-24 md:py-12 space-y-8 sm:space-y-10">
-      {/* Member Header */}
-      <div className="border-b border-[#E5E0D8] pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
-            Cartlane Member Hub
-          </p>
-          <h1 className="font-serif-display text-3xl sm:text-4xl font-bold text-[#141413]">
-            Welcome, {userProfile?.displayName || user.displayName}
-          </h1>
-          <p className="text-xs font-mono-tabular text-[#78716C] mt-1">
-            {user.email}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          {isAdmin && (
-            <Link
-              to="/admin"
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#8C6239] text-white text-xs font-semibold uppercase tracking-wider"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>Admin Dashboard</span>
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={logout}
-            className="inline-flex items-center gap-2 px-4 py-2.5 border border-[#141413] text-[#141413] text-xs font-semibold uppercase tracking-wider hover:bg-[#F3EFEA]"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Member KPI Overview Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="p-4 bg-white border border-[#E5E0D8] space-y-1">
-          <p className="text-[10px] uppercase tracking-widest text-[#78716C]">
-            Total Orders
-          </p>
-          <p className="font-mono-tabular text-2xl font-bold text-[#141413]">
-            {myOrders.length}
-          </p>
-        </div>
-        <div className="p-4 bg-white border border-[#E5E0D8] space-y-1">
-          <p className="text-[10px] uppercase tracking-widest text-[#78716C]">
-            Saved Addresses
-          </p>
-          <p className="font-mono-tabular text-2xl font-bold text-[#141413]">
-            {addresses.length}
-          </p>
-        </div>
-        <Link
-          to="/wishlist"
-          className="p-4 bg-white border border-[#E5E0D8] hover:border-[#8C6239] space-y-1 transition-colors"
-        >
-          <p className="text-[10px] uppercase tracking-widest text-[#78716C]">
-            Saved Wishlist
-          </p>
-          <p className="font-mono-tabular text-2xl font-bold text-[#8C6239]">
-            {wishlistIds.length} Items →
-          </p>
-        </Link>
-        <Link
-          to="/offers"
-          className="p-4 bg-[#141413] text-[#FAF8F5] space-y-1"
-        >
-          <p className="text-[10px] uppercase tracking-widest text-[#D4AF37]">
-            Member Privilege Code
-          </p>
-          <p className="font-mono-tabular text-lg font-bold text-white">
-            ROYAL15 (15% OFF)
-          </p>
-        </Link>
-      </div>
-
-      {/* Account Navigation Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-[#E5E0D8] pb-4">
-        <button
-          type="button"
-          onClick={() => setActiveTab('orders')}
-          className={`shrink-0 inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider ${
-            activeTab === 'orders'
-              ? 'bg-[#141413] text-white'
-              : 'bg-[#F3EFEA] text-[#57534E] hover:text-[#141413]'
-          }`}
-        >
-          <Package className="w-3.5 h-3.5" />
-          <span>Order History ({myOrders.length})</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('addresses')}
-          className={`shrink-0 inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider ${
-            activeTab === 'addresses'
-              ? 'bg-[#141413] text-white'
-              : 'bg-[#F3EFEA] text-[#57534E] hover:text-[#141413]'
-          }`}
-        >
-          <MapPin className="w-3.5 h-3.5" />
-          <span>Saved Addresses ({addresses.length})</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('profile')}
-          className={`shrink-0 inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider ${
-            activeTab === 'profile'
-              ? 'bg-[#141413] text-white'
-              : 'bg-[#F3EFEA] text-[#57534E] hover:text-[#141413]'
-          }`}
-        >
-          <UserIcon className="w-3.5 h-3.5" />
-          <span>Profile Settings</span>
-        </button>
-      </div>
-
-      {/* Tab 1: Orders */}
-      {activeTab === 'orders' && (
-        <div className="space-y-4">
-          {myOrders.length === 0 ? (
-            <div className="p-12 bg-[#F3EFEA] border border-[#E5E0D8] text-center space-y-3">
-              <p className="font-serif-display text-2xl text-[#141413]">
-                You have not placed any orders yet
-              </p>
-              <Link
-                to="/products"
-                className="inline-block px-6 py-2.5 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest"
-              >
-                Explore Products
-              </Link>
+    <main className="max-w-[1440px] mx-auto px-2 sm:px-4 pt-3 pb-24 md:py-6 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        {/* LEFT COLUMN: FLIPKART ACCOUNT SIDEBAR */}
+        <aside className="lg:col-span-3 space-y-3">
+          {/* Hello User Card */}
+          <div className="p-4 bg-white border border-[#E0E0E0] rounded-xs flex items-center gap-3 shadow-2xs">
+            <div className="w-12 h-12 rounded-full bg-[#2874F0] text-white font-extrabold text-lg flex items-center justify-center shrink-0">
+              {(userProfile?.displayName || user.displayName || 'U')[0].toUpperCase()}
             </div>
-          ) : (
-            myOrders.map((ord) => (
-              <div
-                key={ord.id}
-                className="p-5 sm:p-6 bg-white border border-[#E5E0D8] flex flex-col md:flex-row md:items-center justify-between gap-6"
-              >
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2 text-xs font-mono-tabular">
-                    <span className="font-bold text-[#141413]">{ord.id}</span>
-                    <span>·</span>
-                    <span className="text-[#78716C]">
-                      {new Date(ord.createdAt).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </span>
-                    <span>·</span>
-                    <span className="px-2 py-0.5 bg-[#F3EFEA] font-semibold text-[#8C6239]">
-                      {ORDER_STATUS_LABELS[ord.status]}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#57534E]">
-                    {ord.items.map((i) => `${i.name} (${i.variantLabel}) × ${i.quantity}`).join(', ')}
-                  </p>
-                  <p className="text-xs text-[#78716C]">Delivering to: {ord.shippingAddress}</p>
-                </div>
+            <div className="min-w-0">
+              <p className="text-[11px] text-[#878787]">Hello,</p>
+              <p className="text-sm font-extrabold text-[#212121] truncate">
+                {userProfile?.displayName || user.displayName}
+              </p>
+              <p className="text-[11px] text-[#878787] truncate">{user.email}</p>
+            </div>
+          </div>
 
-                <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-[#ECE7DF]">
-                  <div className="text-left md:text-right font-mono-tabular">
-                    <p className="text-base font-bold text-[#141413]">
-                      ₹{ord.totalAmount.toLocaleString('en-IN')}
-                    </p>
-                    <p className="text-[11px] text-[#78716C]">
-                      {ord.paymentMethod} · {ord.paymentStatus}
-                    </p>
-                  </div>
+          {/* Navigation Menu */}
+          <div className="bg-white border border-[#E0E0E0] rounded-xs divide-y divide-[#F0F0F0] shadow-2xs overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setActiveTab('orders')}
+              className={`w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider transition-colors ${
+                activeTab === 'orders'
+                  ? 'bg-[#E3F2FD]/50 text-[#2874F0]'
+                  : 'text-[#212121] hover:bg-[#F8F9FA]'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Package className="w-4 h-4 text-[#2874F0]" />
+                <span>My Orders ({myOrders.length})</span>
+              </span>
+              <span>›</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('addresses')}
+              className={`w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider transition-colors ${
+                activeTab === 'addresses'
+                  ? 'bg-[#E3F2FD]/50 text-[#2874F0]'
+                  : 'text-[#212121] hover:bg-[#F8F9FA]'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <MapPin className="w-4 h-4 text-[#2874F0]" />
+                <span>Manage Addresses ({addresses.length})</span>
+              </span>
+              <span>›</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('profile')}
+              className={`w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider transition-colors ${
+                activeTab === 'profile'
+                  ? 'bg-[#E3F2FD]/50 text-[#2874F0]'
+                  : 'text-[#212121] hover:bg-[#F8F9FA]'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <UserIcon className="w-4 h-4 text-[#2874F0]" />
+                <span>Profile Information</span>
+              </span>
+              <span>›</span>
+            </button>
+
+            <Link
+              to="/wishlist"
+              className="w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-[#212121] hover:bg-[#F8F9FA]"
+            >
+              <span className="flex items-center gap-2.5">
+                <Heart className="w-4 h-4 text-[#FF4343]" />
+                <span>My Wishlist ({wishlistIds.length})</span>
+              </span>
+              <span>›</span>
+            </Link>
+
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-[#388E3C] bg-[#E8F5E9]/40 hover:bg-[#E8F5E9]"
+              >
+                <span className="flex items-center gap-2.5">
+                  <Shield className="w-4 h-4 text-[#388E3C]" />
+                  <span>Admin Seller Console</span>
+                </span>
+                <span>›</span>
+              </Link>
+            )}
+
+            <button
+              type="button"
+              onClick={logout}
+              className="w-full p-4 flex items-center gap-2.5 text-xs font-extrabold uppercase tracking-wider text-red-600 hover:bg-red-50"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* RIGHT COLUMN: ACTIVE TAB CONTENT */}
+        <div className="lg:col-span-9 space-y-3">
+          {/* Tab 1: Orders */}
+          {activeTab === 'orders' && (
+            <div className="space-y-3">
+              <div className="p-4 bg-white border border-[#E0E0E0] rounded-xs flex items-center justify-between shadow-2xs">
+                <h1 className="text-base sm:text-lg font-extrabold text-[#212121]">
+                  My Orders ({myOrders.length})
+                </h1>
+                <Link
+                  to="/track-order"
+                  className="text-xs font-bold text-[#2874F0] hover:underline"
+                >
+                  Lookup by Order ID →
+                </Link>
+              </div>
+
+              {myOrders.length === 0 ? (
+                <div className="p-12 bg-white border border-[#E0E0E0] rounded-xs text-center space-y-3 shadow-2xs">
+                  <p className="text-lg font-extrabold text-[#212121]">
+                    You have no orders yet!
+                  </p>
                   <Link
-                    to={`/account/orders/${ord.id}`}
-                    className="px-4 py-2.5 bg-[#141413] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#8C6239] transition-colors whitespace-nowrap"
+                    to="/products"
+                    className="inline-block px-6 py-2.5 bg-[#2874F0] text-white text-xs font-bold uppercase rounded-xs"
                   >
-                    Track &amp; View →
+                    Start Shopping
                   </Link>
                 </div>
+              ) : (
+                myOrders.map((ord) => (
+                  <Link
+                    key={ord.id}
+                    to={`/account/orders/${ord.id}`}
+                    className="block p-4 sm:p-5 bg-white border border-[#E0E0E0] hover:shadow-md rounded-xs transition-shadow"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        {ord.items[0]?.image && (
+                          <img
+                            src={getOptimizedImageUrl(ord.items[0].image, 120)}
+                            alt={ord.items[0].name}
+                            referrerPolicy="no-referrer"
+                            className="w-16 h-16 object-contain border border-[#F0F0F0] p-1 shrink-0"
+                          />
+                        )}
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2 text-xs font-mono-tabular">
+                            <span className="font-extrabold text-[#2874F0]">{ord.id}</span>
+                            <span>·</span>
+                            <span className="text-[#878787]">
+                              {new Date(ord.createdAt).toLocaleDateString('en-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                            </span>
+                          </div>
+                          <p className="text-xs sm:text-sm font-bold text-[#212121]">
+                            {ord.items
+                              .map((i) => `${i.name} (${i.variantLabel}) × ${i.quantity}`)
+                              .join(', ')}
+                          </p>
+                          <p className="text-xs text-[#878787]">
+                            Deliver to: {ord.shippingAddress}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-[#F0F0F0]">
+                        <div className="font-mono-tabular">
+                          <p className="text-sm sm:text-base font-extrabold text-[#212121]">
+                            ₹{ord.totalAmount.toLocaleString('en-IN')}
+                          </p>
+                          <p className="text-[11px] text-[#878787]">
+                            {ord.paymentMethod}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="inline-block px-2.5 py-1 bg-[#E8F5E9] text-[#388E3C] text-xs font-extrabold rounded-xs">
+                            {ORDER_STATUS_LABELS[ord.status]}
+                          </span>
+                          <p className="text-[11px] text-[#2874F0] font-bold mt-1">
+                            Track Order →
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Tab 2: Saved Addresses */}
+          {activeTab === 'addresses' && (
+            <div className="bg-white border border-[#E0E0E0] rounded-xs p-5 sm:p-6 space-y-6 shadow-2xs">
+              <h2 className="text-lg font-extrabold text-[#212121] border-b border-[#F0F0F0] pb-3">
+                Manage Addresses
+              </h2>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-7 space-y-3">
+                  {addresses.length === 0 ? (
+                    <p className="text-xs text-[#878787]">No saved addresses yet.</p>
+                  ) : (
+                    addresses.map((addr) => (
+                      <div
+                        key={addr.id}
+                        className="p-4 border border-[#E0E0E0] rounded-xs flex items-start justify-between gap-4"
+                      >
+                        <div className="space-y-1 text-xs">
+                          <p className="font-extrabold text-[#212121]">
+                            {addr.fullName} &nbsp; {addr.phone}
+                          </p>
+                          <p className="text-[#555555]">
+                            {addr.house}, {addr.street}, {addr.city}, {addr.state} -{' '}
+                            <strong>{addr.pinCode}</strong>
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => deleteCustomerAddress(addr.id)}
+                          className="text-xs text-red-600 hover:underline shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <form
+                  onSubmit={handleAddAddress}
+                  className="lg:col-span-5 p-4 bg-[#F8F9FA] border border-[#E0E0E0] rounded-xs space-y-3"
+                >
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#2874F0]">
+                    + Add a New Address
+                  </h3>
+                  <input
+                    required
+                    placeholder="Full Name"
+                    value={addrForm.fullName}
+                    onChange={(e) => setAddrForm({ ...addrForm, fullName: e.target.value })}
+                    className="w-full bg-white border border-[#D0D0D0] px-3 py-2 text-xs rounded-xs"
+                  />
+                  <input
+                    required
+                    placeholder="10-Digit Mobile Number"
+                    value={addrForm.phone}
+                    onChange={(e) => setAddrForm({ ...addrForm, phone: e.target.value })}
+                    className="w-full bg-white border border-[#D0D0D0] px-3 py-2 text-xs font-mono-tabular rounded-xs"
+                  />
+                  <input
+                    required
+                    placeholder="Flat / House / Building"
+                    value={addrForm.house}
+                    onChange={(e) => setAddrForm({ ...addrForm, house: e.target.value })}
+                    className="w-full bg-white border border-[#D0D0D0] px-3 py-2 text-xs rounded-xs"
+                  />
+                  <input
+                    required
+                    placeholder="Area / Street / Locality"
+                    value={addrForm.street}
+                    onChange={(e) => setAddrForm({ ...addrForm, street: e.target.value })}
+                    className="w-full bg-white border border-[#D0D0D0] px-3 py-2 text-xs rounded-xs"
+                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <input
+                      required
+                      placeholder="City"
+                      value={addrForm.city}
+                      onChange={(e) => setAddrForm({ ...addrForm, city: e.target.value })}
+                      className="bg-white border border-[#D0D0D0] px-2.5 py-2 text-xs rounded-xs"
+                    />
+                    <input
+                      required
+                      placeholder="State"
+                      value={addrForm.state}
+                      onChange={(e) => setAddrForm({ ...addrForm, state: e.target.value })}
+                      className="bg-white border border-[#D0D0D0] px-2.5 py-2 text-xs rounded-xs"
+                    />
+                    <input
+                      required
+                      maxLength={6}
+                      placeholder="Pincode"
+                      value={addrForm.pinCode}
+                      onChange={(e) =>
+                        setAddrForm({
+                          ...addrForm,
+                          pinCode: e.target.value.replace(/\D/g, ''),
+                        })
+                      }
+                      className="bg-white border border-[#D0D0D0] px-2.5 py-2 text-xs font-mono-tabular rounded-xs"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider rounded-xs"
+                  >
+                    Save Address
+                  </button>
+                </form>
               </div>
-            ))
+            </div>
+          )}
+
+          {/* Tab 3: Profile */}
+          {activeTab === 'profile' && (
+            <form
+              onSubmit={handleSaveProfile}
+              className="bg-white border border-[#E0E0E0] rounded-xs p-5 sm:p-6 space-y-4 shadow-2xs max-w-lg"
+            >
+              <h2 className="text-lg font-extrabold text-[#212121] border-b border-[#F0F0F0] pb-3">
+                Personal Information
+              </h2>
+              <div>
+                <label className="block text-xs font-semibold text-[#878787] mb-1">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="w-full border border-[#D0D0D0] px-3 py-2 text-xs rounded-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#878787] mb-1">
+                  Mobile Number
+                </label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+91 9876543210"
+                  className="w-full border border-[#D0D0D0] px-3 py-2 text-xs font-mono-tabular rounded-xs"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-6 py-2.5 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider rounded-xs"
+              >
+                Save Changes
+              </button>
+            </form>
           )}
         </div>
-      )}
-
-      {/* Tab 2: Saved Addresses */}
-      {activeTab === 'addresses' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          <div className="lg:col-span-7 space-y-4">
-            <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
-              Saved Shipping Addresses
-            </h2>
-            {addresses.length === 0 ? (
-              <p className="text-xs text-[#57534E]">No saved shipping addresses yet.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {addresses.map((addr) => (
-                  <div
-                    key={addr.id}
-                    className="p-5 bg-white border border-[#E5E0D8] flex flex-col justify-between space-y-4"
-                  >
-                    <div className="space-y-1 text-xs">
-                      <p className="font-bold text-[#141413]">{addr.fullName}</p>
-                      <p className="text-[#57534E]">
-                        {addr.house}, {addr.street}
-                      </p>
-                      <p className="text-[#57534E]">
-                        {addr.city}, {addr.state} - {addr.pinCode}
-                      </p>
-                      <p className="font-mono-tabular text-[#78716C] pt-1">
-                        Phone: {addr.phone}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => deleteCustomerAddress(addr.id)}
-                      className="inline-flex items-center gap-1 text-xs text-red-700 hover:underline self-start"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete Address</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <form
-            onSubmit={handleAddAddress}
-            className="lg:col-span-5 p-6 bg-[#F3EFEA] border border-[#E5E0D8] space-y-3"
-          >
-            <h3 className="font-serif-display text-xl font-bold text-[#141413]">
-              Add New Address
-            </h3>
-            <input
-              required
-              placeholder="Recipient Full Name"
-              value={addrForm.fullName}
-              onChange={(e) => setAddrForm({ ...addrForm, fullName: e.target.value })}
-              className="w-full bg-white border border-[#D6D3D1] px-3 py-2 text-xs"
-            />
-            <input
-              required
-              placeholder="10-Digit Mobile Number"
-              value={addrForm.phone}
-              onChange={(e) => setAddrForm({ ...addrForm, phone: e.target.value })}
-              className="w-full bg-white border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
-            />
-            <input
-              required
-              placeholder="House / Flat / Building"
-              value={addrForm.house}
-              onChange={(e) => setAddrForm({ ...addrForm, house: e.target.value })}
-              className="w-full bg-white border border-[#D6D3D1] px-3 py-2 text-xs"
-            />
-            <input
-              required
-              placeholder="Street & Locality"
-              value={addrForm.street}
-              onChange={(e) => setAddrForm({ ...addrForm, street: e.target.value })}
-              className="w-full bg-white border border-[#D6D3D1] px-3 py-2 text-xs"
-            />
-            <div className="grid grid-cols-3 gap-2">
-              <input
-                required
-                placeholder="City"
-                value={addrForm.city}
-                onChange={(e) => setAddrForm({ ...addrForm, city: e.target.value })}
-                className="bg-white border border-[#D6D3D1] px-3 py-2 text-xs"
-              />
-              <input
-                required
-                placeholder="State"
-                value={addrForm.state}
-                onChange={(e) => setAddrForm({ ...addrForm, state: e.target.value })}
-                className="bg-white border border-[#D6D3D1] px-3 py-2 text-xs"
-              />
-              <input
-                required
-                maxLength={6}
-                placeholder="PIN (6 digits)"
-                value={addrForm.pinCode}
-                onChange={(e) =>
-                  setAddrForm({ ...addrForm, pinCode: e.target.value.replace(/\D/g, '') })
-                }
-                className="bg-white border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2.5 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest"
-            >
-              Save Address
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* Tab 3: Profile */}
-      {activeTab === 'profile' && (
-        <form
-          onSubmit={handleSaveProfile}
-          className="max-w-md p-6 bg-white border border-[#E5E0D8] space-y-4"
-        >
-          <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
-            Update Personal Profile
-          </h2>
-          <div>
-            <label className="block text-xs text-[#57534E] mb-1">Display Name</label>
-            <input
-              type="text"
-              required
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-[#57534E] mb-1">
-              Mobile Number
-            </label>
-            <input
-              type="text"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 9876543210"
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
-            />
-          </div>
-          <button
-            type="submit"
-            className="px-6 py-2.5 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest"
-          >
-            Save Profile Changes
-          </button>
-        </form>
-      )}
+      </div>
     </main>
   );
 };
@@ -602,8 +621,8 @@ export const OrderDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <main className="max-w-[1440px] mx-auto px-6 py-20 text-center text-xs uppercase tracking-widest text-[#78716C]">
-        Loading Order &amp; Chronological Tracking Log...
+      <main className="max-w-[1440px] mx-auto px-6 py-20 text-center text-xs font-bold uppercase tracking-widest text-[#878787]">
+        Loading Order &amp; Live Tracking Timeline...
       </main>
     );
   }
@@ -611,17 +630,17 @@ export const OrderDetailPage: React.FC = () => {
   if (!user || !order) {
     return (
       <main className="max-w-lg mx-auto px-6 py-20 text-center space-y-4">
-        <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
+        <h1 className="text-2xl font-extrabold text-[#212121]">
           Order Not Found or Access Restricted
         </h1>
-        <p className="text-xs text-[#57534E]">
-          For customer privacy, only the authenticated order owner or an authorized Cartlane administrator can view this order.
+        <p className="text-xs text-[#878787]">
+          Only the authenticated order owner or an authorized Cartlane administrator can view this order.
         </p>
         <Link
           to="/account"
-          className="inline-block px-6 py-2.5 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest"
+          className="inline-block px-6 py-2.5 bg-[#2874F0] text-white text-xs font-bold uppercase rounded-xs"
         >
-          Back to My Account
+          Back to My Orders
         </Link>
       </main>
     );
@@ -659,21 +678,25 @@ export const OrderDetailPage: React.FC = () => {
   };
 
   return (
-    <main className="max-w-[1440px] mx-auto px-3 sm:px-6 pt-5 pb-24 md:py-12 space-y-10">
-      {/* Header */}
-      <div className="border-b border-[#E5E0D8] pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <main className="max-w-[1440px] mx-auto px-2 sm:px-4 pt-3 pb-24 md:py-6 space-y-4">
+      {/* Header Card */}
+      <div className="bg-white border border-[#E0E0E0] rounded-xs p-4 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
         <div>
-          <div className="flex items-center gap-2 text-xs text-[#78716C] font-mono-tabular">
-            <Link to="/account" className="hover:text-[#141413] underline">
+          <div className="flex items-center gap-1.5 text-xs text-[#878787]">
+            <Link to="/account" className="hover:text-[#2874F0]">
+              My Account
+            </Link>
+            <span>›</span>
+            <Link to="/account/orders" className="hover:text-[#2874F0]">
               My Orders
             </Link>
-            <span>/</span>
-            <span>{order.id}</span>
+            <span>›</span>
+            <span className="font-mono-tabular text-[#212121]">{order.id}</span>
           </div>
-          <h1 className="font-serif-display text-3xl md:text-4xl font-bold text-[#141413] mt-1">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-[#212121] mt-1">
             Order #{order.id}
           </h1>
-          <p className="text-xs text-[#57534E] font-mono-tabular mt-1">
+          <p className="text-xs text-[#878787] font-mono-tabular mt-0.5">
             Placed on{' '}
             {new Date(order.createdAt).toLocaleString('en-IN', {
               dateStyle: 'medium',
@@ -683,14 +706,14 @@ export const OrderDetailPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#D6D3D1] bg-white text-xs font-semibold uppercase tracking-wider text-[#141413] hover:border-[#141413]"
+            className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#E0E0E0] bg-white text-xs font-bold uppercase text-[#2874F0] hover:border-[#2874F0] rounded-xs"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print Summary</span>
+            <span>Download Invoice</span>
           </button>
 
           {canCancel && (
@@ -698,10 +721,10 @@ export const OrderDetailPage: React.FC = () => {
               type="button"
               disabled={actionBusy}
               onClick={() => handleCustomerAction('CANCELLATION_REQUESTED')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-800 text-red-800 text-xs font-semibold uppercase tracking-wider hover:bg-red-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-600 text-red-600 text-xs font-bold uppercase hover:bg-red-50 rounded-xs"
             >
               <XCircle className="w-3.5 h-3.5" />
-              <span>Request Cancellation</span>
+              <span>Cancel Order</span>
             </button>
           )}
 
@@ -710,10 +733,10 @@ export const OrderDetailPage: React.FC = () => {
               type="button"
               disabled={actionBusy}
               onClick={() => handleCustomerAction('RETURN_REQUESTED')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#141413] text-[#141413] text-xs font-semibold uppercase tracking-wider hover:bg-[#F3EFEA]"
+              className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#2874F0] text-[#2874F0] text-xs font-bold uppercase hover:bg-[#E3F2FD]/30 rounded-xs"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Request Return</span>
+              <span>Return Item</span>
             </button>
           )}
         </div>
@@ -723,34 +746,34 @@ export const OrderDetailPage: React.FC = () => {
       <OrderTimeline order={order} events={events} />
 
       {/* Order Items & Address Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 bg-white border border-[#E5E0D8] p-6 space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#141413] border-b border-[#ECE7DF] pb-3">
-            Ordered Formulations ({order.items.length})
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-8 bg-white border border-[#E0E0E0] rounded-xs p-5 space-y-4 shadow-2xs">
+          <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#878787] border-b border-[#F0F0F0] pb-3">
+            Ordered Items ({order.items.length})
           </h2>
-          <div className="divide-y divide-[#ECE7DF]">
+          <div className="divide-y divide-[#F0F0F0]">
             {order.items.map((item, idx) => (
-              <div key={idx} className="py-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
+              <div key={idx} className="py-3.5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
                   <img
                     src={getOptimizedImageUrl(item.image, 160)}
                     alt={item.name}
                     referrerPolicy="no-referrer"
-                    className="w-16 h-16 object-cover bg-[#F3EFEA] border border-[#E5E0D8]"
+                    className="w-16 h-16 object-contain bg-white border border-[#F0F0F0] p-1"
                   />
                   <div>
                     <Link
                       to={`/products/${item.slug}`}
-                      className="text-sm font-semibold text-[#141413] hover:text-[#8C6239]"
+                      className="text-sm font-bold text-[#212121] hover:text-[#2874F0]"
                     >
                       {item.name}
                     </Link>
-                    <p className="text-xs text-[#78716C] font-mono-tabular">
-                      Edition: {item.variantLabel} · Qty: {item.quantity} · SKU: {item.sku}
+                    <p className="text-xs text-[#878787] font-mono-tabular">
+                      Pack: {item.variantLabel} · Qty: {item.quantity} · SKU: {item.sku}
                     </p>
                   </div>
                 </div>
-                <span className="font-mono-tabular text-sm font-bold text-[#141413]">
+                <span className="font-mono-tabular text-sm font-extrabold text-[#212121]">
                   ₹{(item.price * item.quantity).toLocaleString('en-IN')}
                 </span>
               </div>
@@ -758,41 +781,41 @@ export const OrderDetailPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-[#F3EFEA] border border-[#E5E0D8] p-6 space-y-2 text-xs">
-            <h3 className="font-semibold uppercase tracking-widest text-[#141413] pb-1">
-              Delivery Destination
+        <div className="lg:col-span-4 space-y-4">
+          <div className="bg-white border border-[#E0E0E0] rounded-xs p-5 space-y-2 text-xs shadow-2xs">
+            <h3 className="font-extrabold uppercase tracking-wider text-[#878787] pb-1">
+              Delivery Address
             </h3>
-            <p className="font-bold text-[#141413]">{order.customerName}</p>
-            <p className="text-[#57534E] leading-relaxed">{order.shippingAddress}</p>
-            <p className="font-mono-tabular text-[#78716C] pt-1">
-              Phone: {order.customerPhone} · Email: {order.customerEmail}
+            <p className="font-extrabold text-[#212121]">{order.customerName}</p>
+            <p className="text-[#555555] leading-relaxed">{order.shippingAddress}</p>
+            <p className="font-mono-tabular text-[#212121] font-semibold pt-1">
+              Phone: {order.customerPhone}
             </p>
           </div>
 
-          <div className="bg-[#F3EFEA] border border-[#E5E0D8] p-6 space-y-2 text-xs">
-            <h3 className="font-semibold uppercase tracking-widest text-[#141413] pb-1">
-              Financial Summary
+          <div className="bg-white border border-[#E0E0E0] rounded-xs p-5 space-y-2.5 text-xs shadow-2xs">
+            <h3 className="font-extrabold uppercase tracking-wider text-[#878787] pb-1">
+              Price Breakup
             </h3>
-            <div className="flex justify-between text-[#57534E]">
+            <div className="flex justify-between text-[#212121]">
               <span>Subtotal</span>
               <span className="font-mono-tabular">₹{order.subtotal.toLocaleString('en-IN')}</span>
             </div>
             {order.discountAmount > 0 && (
-              <div className="flex justify-between text-emerald-800">
+              <div className="flex justify-between text-[#388E3C] font-semibold">
                 <span>Coupon Discount {order.couponCode ? `(${order.couponCode})` : ''}</span>
                 <span className="font-mono-tabular">
-                  -₹{order.discountAmount.toLocaleString('en-IN')}
+                  − ₹{order.discountAmount.toLocaleString('en-IN')}
                 </span>
               </div>
             )}
-            <div className="flex justify-between text-[#57534E]">
+            <div className="flex justify-between text-[#212121]">
               <span>Shipping</span>
-              <span className="font-mono-tabular">
-                {order.shippingFee === 0 ? 'COMPLIMENTARY' : `₹${order.shippingFee}`}
+              <span className="font-mono-tabular text-[#388E3C] font-bold">
+                {order.shippingFee === 0 ? 'FREE' : `₹${order.shippingFee}`}
               </span>
             </div>
-            <div className="flex justify-between text-sm font-bold text-[#141413] pt-2 border-t border-[#E5E0D8]">
+            <div className="flex justify-between text-sm font-extrabold text-[#212121] pt-2.5 border-t border-dashed border-[#E0E0E0]">
               <span>Total Amount</span>
               <span className="font-mono-tabular">
                 ₹{order.totalAmount.toLocaleString('en-IN')}
@@ -835,118 +858,79 @@ export const TrackOrderLookupPage: React.FC = () => {
   };
 
   return (
-    <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-24 md:py-16 space-y-10">
-      <div className="space-y-2 text-center">
-        <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
-          Real-Time Order Lifecycle
-        </p>
-        <h1 className="font-serif-display text-3xl sm:text-4xl font-bold text-[#141413]">
-          Track Your Cartlane Order
-        </h1>
-        <p className="text-xs sm:text-sm text-[#57534E] max-w-xl mx-auto">
-          Enter your Cartlane Order ID to inspect live fulfillment stages, warehouse quality checks, and courier hub timestamps.
-        </p>
-      </div>
-
-      <form
-        onSubmit={handleLookup}
-        className="p-6 md:p-8 bg-white border border-[#E5E0D8] space-y-4"
-      >
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-[#78716C] absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={orderIdInput}
-              onChange={(e) => setOrderIdInput(e.target.value)}
-              placeholder="Enter Order ID (e.g. AV-M7X89K-9B2A)"
-              className="w-full border border-[#D6D3D1] pl-10 pr-4 py-3 text-xs font-mono-tabular uppercase"
-            />
-          </div>
-          <button
-            type="submit"
-            className="px-6 py-3 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest hover:bg-[#8C6239] transition-colors"
-          >
-            Track Shipment
-          </button>
+    <main className="max-w-4xl mx-auto px-3 sm:px-6 pt-6 pb-24 md:py-12 space-y-6">
+      <div className="bg-white border border-[#E0E0E0] rounded-xs p-6 sm:p-8 space-y-6 shadow-2xs">
+        <div className="space-y-1.5">
+          <p className="text-xs uppercase tracking-wider text-[#2874F0] font-extrabold">
+            Flipkart-Style Real-Time Shipment Tracker
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#212121]">
+            Track Your Cartlane Order
+          </h1>
+          <p className="text-xs sm:text-sm text-[#878787]">
+            Enter your Order ID (e.g., AV-...) to inspect live courier stages and delivery timestamps.
+          </p>
         </div>
 
-        {lookupError && <p className="text-xs text-red-700">{lookupError}</p>}
-
-        {!user && (
-          <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#57534E] border-t border-[#ECE7DF]">
-            <span>Sign in to view and track your recent Cartlane orders automatically</span>
+        <form onSubmit={handleLookup} className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-[#878787] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={orderIdInput}
+                onChange={(e) => setOrderIdInput(e.target.value)}
+                placeholder="Enter Order ID (e.g. AV-M7X89K-9B2A)"
+                className="w-full border border-[#D0D0D0] pl-10 pr-4 py-3 text-xs font-mono-tabular uppercase rounded-xs focus:outline-none focus:border-[#2874F0]"
+              />
+            </div>
             <button
-              type="button"
-              onClick={loginWithGoogle}
-              className="font-semibold text-[#141413] underline self-start sm:self-auto"
+              type="submit"
+              className="px-8 py-3 bg-[#FB641B] hover:bg-[#E85812] text-white text-xs font-extrabold uppercase tracking-wider rounded-xs transition-colors"
             >
-              Sign In with Google →
+              Track Order
             </button>
           </div>
-        )}
-      </form>
 
-      {/* 4-Step Shipment Lifecycle Explainer */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        {[
-          {
-            step: '01',
-            title: 'Order Confirmed',
-            desc: 'Inventory reserved & verified in Firestore',
-          },
-          {
-            step: '02',
-            title: 'Quality Packed',
-            desc: 'Sealed in tamper-evident Cartlane packaging',
-          },
-          {
-            step: '03',
-            title: 'In Transit',
-            desc: 'Express dispatch via BlueDart / Delhivery',
-          },
-          {
-            step: '04',
-            title: 'Doorstep Delivery',
-            desc: 'Pay via Cash or UPI upon parcel arrival',
-          },
-        ].map((item) => (
-          <div
-            key={item.step}
-            className="p-4 bg-[#F3EFEA] border border-[#E5E0D8] space-y-1.5"
-          >
-            <span className="text-[11px] font-mono-tabular font-bold text-[#8C6239]">
-              STAGE {item.step}
-            </span>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#141413]">
-              {item.title}
-            </h3>
-            <p className="text-[11px] text-[#57534E] leading-relaxed">{item.desc}</p>
-          </div>
-        ))}
+          {lookupError && <p className="text-xs text-red-600 font-semibold">{lookupError}</p>}
+
+          {!user && (
+            <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#878787] border-t border-[#F0F0F0]">
+              <span>Login to view and track your recent Cartlane orders automatically</span>
+              <button
+                type="button"
+                onClick={loginWithGoogle}
+                className="font-extrabold text-[#2874F0] hover:underline self-start sm:self-auto"
+              >
+                Login with Google →
+              </button>
+            </div>
+          )}
+        </form>
       </div>
 
       {user && myOrders.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#141413]">
-            Your Recent Cartlane Orders
+        <div className="bg-white border border-[#E0E0E0] rounded-xs p-5 sm:p-6 space-y-4 shadow-2xs">
+          <h2 className="text-sm font-extrabold uppercase tracking-wider text-[#212121]">
+            Your Recent Orders
           </h2>
-          <div className="space-y-3">
+          <div className="divide-y divide-[#F0F0F0]">
             {myOrders.map((ord) => (
               <Link
                 key={ord.id}
                 to={`/account/orders/${ord.id}`}
-                className="p-4 bg-white border border-[#E5E0D8] hover:border-[#141413] flex items-center justify-between transition-colors"
+                className="py-3.5 flex items-center justify-between hover:bg-[#F8F9FA] px-2 rounded-xs transition-colors"
               >
                 <div>
-                  <p className="text-xs font-mono-tabular font-bold text-[#141413]">
-                    {ord.id} · {ORDER_STATUS_LABELS[ord.status]}
+                  <p className="text-xs font-mono-tabular font-extrabold text-[#2874F0]">
+                    {ord.id} ·{' '}
+                    <span className="text-[#388E3C]">{ORDER_STATUS_LABELS[ord.status]}</span>
                   </p>
-                  <p className="text-xs text-[#57534E] mt-0.5">
+                  <p className="text-xs text-[#212121] mt-0.5">
                     {ord.items.length} item(s) · ₹{ord.totalAmount.toLocaleString('en-IN')}
                   </p>
                 </div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-[#8C6239]">
+                <span className="text-xs font-bold text-[#2874F0]">
                   View Timeline →
                 </span>
               </Link>

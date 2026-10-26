@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShieldCheck, Truck, RotateCcw, Award } from 'lucide-react';
+import { RotateCcw, ShieldCheck, Sparkles, Truck } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export const Footer: React.FC = () => {
-  const { settings, user, isAdmin, showToast } = useStore();
+  const { settings, showToast } = useStore();
   const [email, setEmail] = useState('');
   const location = useLocation();
 
@@ -12,224 +12,220 @@ export const Footer: React.FC = () => {
     return null;
   }
 
-  const handleNewsletter = (e: React.FormEvent) => {
+  const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.includes('@')) {
-      showToast('Please enter a valid email address.', 'error');
-      return;
-    }
-    showToast('Thank you for subscribing to Cartlane.');
+    if (!email.includes('@')) return;
+    showToast('Subscribed! You will receive Cartlane Big Grooming Sale alerts.');
     setEmail('');
   };
 
   return (
-    <footer className="bg-[#141413] text-[#E7E5E4] border-t border-[#292524] mt-16 pb-16 md:pb-0">
-      {/* Storefront Assurance Bar */}
-      <div className="border-b border-[#292524] bg-[#1B1917]">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-6 grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+    <footer className="bg-[#172337] text-white border-t border-[#2874F0]/30 mt-8 pb-20 md:pb-0">
+      {/* Top Storefront Assurance Strip */}
+      <div className="border-b border-white/10 bg-[#1E2B42]">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-5 grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <div className="flex items-start gap-3">
-            <Award className="w-5 h-5 text-[#D4AF7A] shrink-0 mt-0.5" />
+            <ShieldCheck className="w-5 h-5 text-[#FFE500] shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-white">
-                100% Authentic Formulations
+                100% Cartlane Assured
               </p>
-              <p className="text-[11px] text-[#A8A29E] mt-0.5">
-                SLS &amp; Paraben-free botanical grooming
+              <p className="text-[11px] text-white/70 mt-0.5">
+                Dermatologically tested · 0% SLS &amp; Parabens
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3">
-            <Truck className="w-5 h-5 text-[#D4AF7A] shrink-0 mt-0.5" />
+            <Truck className="w-5 h-5 text-[#FFE500] shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-white">
-                Free Express Shipping
+                Free Express Delivery
               </p>
-              <p className="text-[11px] text-[#A8A29E] mt-0.5">
-                On all orders ≥ ₹{settings.freeShippingThreshold} across India
+              <p className="text-[11px] text-white/70 mt-0.5">
+                Free shipping on orders above ₹{settings.freeShippingThreshold}
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3">
-            <ShieldCheck className="w-5 h-5 text-[#D4AF7A] shrink-0 mt-0.5" />
+            <Sparkles className="w-5 h-5 text-[#FFE500] shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-white">
                 Cash on Delivery (COD)
               </p>
-              <p className="text-[11px] text-[#A8A29E] mt-0.5">
-                Pay securely at your doorstep upon arrival
+              <p className="text-[11px] text-white/70 mt-0.5">
+                Pay via Cash or UPI at your doorstep across India
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3">
-            <RotateCcw className="w-5 h-5 text-[#D4AF7A] shrink-0 mt-0.5" />
+            <RotateCcw className="w-5 h-5 text-[#FFE500] shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-white">
-                {settings.returnWindowDays}-Day Easy Returns
+                {settings.returnWindowDays}-Day Easy Replacement
               </p>
-              <p className="text-[11px] text-[#A8A29E] mt-0.5">
-                Transparent live order tracking &amp; support
+              <p className="text-[11px] text-white/70 mt-0.5">
+                Instant pre-dispatch cancellation &amp; hassle-free returns
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-12 sm:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[#292524]">
-          {/* Column 1: Brand & Newsletter */}
-          <div className="lg:col-span-2 space-y-4">
-            <Link
-              to="/"
-              className="font-serif-display text-2xl sm:text-3xl font-bold tracking-wider text-[#FAF8F5] block"
+      {/* Flipkart Dark Navy Multi-Column Directory */}
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
+        {/* Col 1 & 2: Brand & Deal Alerts */}
+        <div className="lg:col-span-2 space-y-4">
+          <Link
+            to="/"
+            className="text-2xl font-extrabold italic tracking-tight text-white block"
+          >
+            {settings.brandName || 'Cartlane'}
+          </Link>
+          <p className="text-xs text-white/75 max-w-sm leading-relaxed">
+            India&apos;s premier men&apos;s grooming superstore featuring Eau De Parfums, Activated Bamboo Charcoal skincare, Argan beard oils, and luxury gift combos.
+          </p>
+
+          <form onSubmit={handleSubscribe} className="flex max-w-sm pt-1">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter email for deal alerts"
+              className="flex-1 bg-white text-[#212121] px-3.5 py-2.5 text-xs placeholder-[#878787] rounded-l-xs focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2.5 bg-[#2874F0] hover:bg-[#1E5BC6] text-white text-xs font-bold uppercase tracking-wider rounded-r-xs transition-colors whitespace-nowrap shrink-0"
             >
-              {settings.brandName || 'CARTLANE'}
-            </Link>
-            <p className="text-xs sm:text-sm text-[#A8A29E] max-w-md leading-relaxed">
-              Premium men&apos;s grooming, high-concentration Eau De Parfums, Activated Charcoal cleansers, 10% Vitamin C serums, and cold-pressed Almond &amp; Thyme beard care.
-            </p>
-            <form onSubmit={handleNewsletter} className="flex max-w-md pt-2">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email for exclusive offers"
-                className="flex-1 h-11 bg-[#1F1E1C] border border-[#3F3B36] px-4 text-xs sm:text-sm text-[#FAF8F5] placeholder-[#78716C] focus:outline-none focus:border-[#8C6239]"
-              />
-              <button
-                type="submit"
-                className="h-11 px-5 bg-[#8C6239] hover:bg-[#734f2c] text-xs font-semibold uppercase tracking-wider text-white transition-colors whitespace-nowrap shrink-0"
-              >
-                Subscribe
-              </button>
-            </form>
-          </div>
-
-          {/* Column 2: Grooming Categories (Exact Slugs) */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-[#D4AF7A]">
-              Shop By Category
-            </h3>
-            <ul className="space-y-2 text-xs sm:text-sm text-[#A8A29E]">
-              <li>
-                <Link to="/collections/fragrance" className="hover:text-white transition-colors">
-                  Perfumes &amp; Fragrances (EDP &amp; EDT)
-                </Link>
-              </li>
-              <li>
-                <Link to="/collections/face-skin" className="hover:text-white transition-colors">
-                  Face &amp; Skin Care (Charcoal &amp; Serums)
-                </Link>
-              </li>
-              <li>
-                <Link to="/collections/beard-care" className="hover:text-white transition-colors">
-                  Beard Growth &amp; Care
-                </Link>
-              </li>
-              <li>
-                <Link to="/collections/hair-care" className="hover:text-white transition-colors">
-                  Hair Growth &amp; Derma Rollers
-                </Link>
-              </li>
-              <li>
-                <Link to="/collections/body-shave" className="hover:text-white transition-colors">
-                  Body &amp; Shaving Essentials
-                </Link>
-              </li>
-              <li>
-                <Link to="/collections/kits-combos" className="hover:text-white transition-colors">
-                  Luxury Gifting &amp; Combos
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Column 3: Customer Concierge */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-[#D4AF7A]">
-              Customer Service
-            </h3>
-            <ul className="space-y-2 text-xs sm:text-sm text-[#A8A29E]">
-              <li>
-                <Link to="/products" className="hover:text-white transition-colors">
-                  All Products Catalog
-                </Link>
-              </li>
-              <li>
-                <Link to="/track-order" className="hover:text-white transition-colors">
-                  Track Your Order
-                </Link>
-              </li>
-              <li>
-                <Link to="/wishlist" className="hover:text-white transition-colors">
-                  Saved Wishlist
-                </Link>
-              </li>
-              <li>
-                <Link to="/offers" className="hover:text-white transition-colors">
-                  Coupons &amp; Combo Offers
-                </Link>
-              </li>
-              <li>
-                <Link to={user ? '/account' : '/login'} className="hover:text-white transition-colors">
-                  {user ? 'My Account & Orders' : 'Customer Sign In'}
-                </Link>
-              </li>
-              <li>
-                <Link to="/contact" className="hover:text-white transition-colors">
-                  Contact Support &amp; FAQs
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Column 4: Policies & Governance */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-[#D4AF7A]">
-              Store Policies &amp; Admin
-            </h3>
-            <ul className="space-y-2 text-xs sm:text-sm text-[#A8A29E]">
-              <li>
-                <Link to="/policies/shipping" className="hover:text-white transition-colors">
-                  Shipping &amp; Delivery Policy
-                </Link>
-              </li>
-              <li>
-                <Link to="/policies/returns" className="hover:text-white transition-colors">
-                  Returns, Refunds &amp; Cancellations
-                </Link>
-              </li>
-              <li>
-                <Link to="/policies/privacy" className="hover:text-white transition-colors">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link to="/policies/terms" className="hover:text-white transition-colors">
-                  Terms &amp; Conditions
-                </Link>
-              </li>
-              <li className="pt-2">
-                <Link
-                  to={isAdmin ? '/admin' : '/admin/login'}
-                  className="text-xs text-[#D4AF7A] hover:underline"
-                >
-                  Store Administrator Console →
-                </Link>
-              </li>
-            </ul>
-          </div>
+              Subscribe
+            </button>
+          </form>
         </div>
 
-        {/* Bottom Copyright & Contact Bar */}
-        <div className="pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[#78716C]">
+        {/* Col 3: Grooming Categories */}
+        <div className="space-y-2.5">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#878787]">
+            Categories
+          </h3>
+          <ul className="space-y-2 text-xs text-white/90 font-medium">
+            <li>
+              <Link to="/collections/fragrance" className="hover:underline">
+                Perfumes &amp; Body Mist
+              </Link>
+            </li>
+            <li>
+              <Link to="/collections/face-skin" className="hover:underline">
+                Charcoal &amp; Vitamin C Face Care
+              </Link>
+            </li>
+            <li>
+              <Link to="/collections/beard-care" className="hover:underline">
+                Beard Growth Oils &amp; Softeners
+              </Link>
+            </li>
+            <li>
+              <Link to="/collections/hair-care" className="hover:underline">
+                Hair Growth Serums &amp; Styling
+              </Link>
+            </li>
+            <li>
+              <Link to="/collections/body-shave" className="hover:underline">
+                Body Wash &amp; Shaving Rituals
+              </Link>
+            </li>
+            <li>
+              <Link to="/collections/kits-combos" className="hover:underline">
+                Luxury Grooming Gift Kits
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Col 4: Customer Help */}
+        <div className="space-y-2.5">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#878787]">
+            Help &amp; Account
+          </h3>
+          <ul className="space-y-2 text-xs text-white/90 font-medium">
+            <li>
+              <Link to="/track-order" className="hover:underline">
+                Track Your Order
+              </Link>
+            </li>
+            <li>
+              <Link to="/offers" className="hover:underline">
+                Coupons &amp; Super Deals
+              </Link>
+            </li>
+            <li>
+              <Link to="/account" className="hover:underline">
+                My Account &amp; Orders
+              </Link>
+            </li>
+            <li>
+              <Link to="/wishlist" className="hover:underline">
+                Saved Wishlist
+              </Link>
+            </li>
+            <li>
+              <Link to="/contact" className="hover:underline">
+                24x7 Customer Care
+              </Link>
+            </li>
+            <li>
+              <Link to="/admin" className="hover:underline text-[#FFE500]">
+                Seller / Admin Console
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Col 5: Consumer Policy */}
+        <div className="space-y-2.5">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#878787]">
+            Consumer Policy
+          </h3>
+          <ul className="space-y-2 text-xs text-white/90 font-medium">
+            <li>
+              <Link to="/policies/shipping" className="hover:underline">
+                Shipping &amp; Delivery
+              </Link>
+            </li>
+            <li>
+              <Link to="/policies/returns" className="hover:underline">
+                Cancellation &amp; Returns
+              </Link>
+            </li>
+            <li>
+              <Link to="/policies/privacy" className="hover:underline">
+                Privacy Policy
+              </Link>
+            </li>
+            <li>
+              <Link to="/policies/terms" className="hover:underline">
+                Terms of Use
+              </Link>
+            </li>
+          </ul>
+          <div className="pt-2 text-[11px] text-white/60 space-y-0.5 font-mono-tabular">
+            <p>{settings.supportEmail}</p>
+            <p>{settings.supportPhone}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Copyright Bar */}
+      <div className="border-t border-white/10">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-white/70">
           <p>
-            © {new Date().getFullYear()} {settings.brandName || 'Cartlane'}. All rights reserved. Independent men&apos;s grooming storefront.
+            © {new Date().getFullYear()} {settings.brandName || 'Cartlane'}. All rights reserved.
           </p>
-          <p className="font-mono-tabular">
-            Support: {settings.supportEmail} · {settings.supportPhone}
+          <p>
+            Free Delivery ≥ ₹{settings.freeShippingThreshold} · {settings.returnWindowDays}-Day Return Policy · Cash on Delivery Available
           </p>
         </div>
       </div>

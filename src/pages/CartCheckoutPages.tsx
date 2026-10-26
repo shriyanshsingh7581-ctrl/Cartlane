@@ -4,17 +4,17 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   AlertCircle,
-  ArrowRight,
-  CheckCircle2,
+  Check,
   Lock,
+  MapPin,
   Minus,
   Plus,
   ShieldCheck,
-  ShoppingBag,
-  Sparkles,
+  ShoppingCart,
   Tag,
   Trash2,
   Truck,
+  Zap,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { checkoutSchema, CheckoutFormValues } from '../schemas/validation';
@@ -47,10 +47,11 @@ export const CartPage: React.FC = () => {
     finalPayable,
   } = cartTotals;
 
-  const freeShippingProgress = Math.min(
-    100,
-    Math.round((subtotal / Math.max(1, settings.freeShippingThreshold)) * 100)
+  const totalMrp = lineItems.reduce(
+    (sum, item) => sum + item.compareAtPrice * item.cartItem.quantity,
+    0
   );
+  const totalSavings = productSavings + couponDiscount + (shippingFee === 0 ? 69 : 0);
 
   // Recommend 3 low-ticket routine add-ons not yet in the cart
   const recommendedAddons = useMemo(() => {
@@ -62,91 +63,64 @@ export const CartPage: React.FC = () => {
   }, [products, lineItems]);
 
   return (
-    <main className="max-w-[1440px] mx-auto px-3 sm:px-6 pt-5 pb-32 md:py-12 space-y-8 sm:space-y-10">
-      <div className="border-b border-[#E5E0D8] pb-4 sm:pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
-            Cartlane Grooming Bag
-          </p>
-          <h1 className="font-serif-display text-3xl sm:text-4xl font-bold text-[#141413]">
-            Review Your Selections ({lineItems.reduce((sum, i) => sum + i.cartItem.quantity, 0)})
-          </h1>
-        </div>
-        <Link
-          to="/products"
-          className="text-xs font-semibold uppercase tracking-wider text-[#141413] hover:text-[#8C6239] underline underline-offset-4"
-        >
-          ← Continue Shopping
-        </Link>
-      </div>
-
+    <main className="max-w-[1440px] mx-auto px-2 sm:px-4 pt-3 pb-32 md:py-8">
       {lineItems.length === 0 ? (
-        <div className="py-16 sm:py-20 px-4 text-center bg-[#F3EFEA] border border-[#E5E0D8] space-y-5">
-          <ShoppingBag className="w-12 h-12 text-[#8C6239] mx-auto" />
-          <div className="space-y-2">
-            <h2 className="font-serif-display text-3xl font-bold text-[#141413]">
-              Your Cartlane bag is empty
-            </h2>
-            <p className="text-xs sm:text-sm text-[#57534E] max-w-md mx-auto">
-              Explore our signature Blanc Eau De Toilette, Activated Charcoal Face Wash, Argan Beard Oil, or Luxury Grooming Kits to start your routine.
+        <div className="py-16 sm:py-20 px-4 text-center bg-white border border-[#E0E0E0] rounded-xs space-y-4 shadow-2xs">
+          <ShoppingCart className="w-14 h-14 text-[#2874F0] mx-auto" />
+          <div className="space-y-1.5">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-[#212121]">
+              Your Cartlane Cart is empty!
+            </h1>
+            <p className="text-xs sm:text-sm text-[#878787] max-w-md mx-auto">
+              Explore our top deals on Blanc Eau De Toilette, Activated Charcoal Face Wash, Argan Beard Oil, and Gift Kits.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Link
               to="/products"
-              className="inline-block px-7 py-3.5 bg-[#141413] text-[#FAF8F5] text-xs font-semibold uppercase tracking-widest hover:bg-[#8C6239] transition-colors"
+              className="inline-block px-8 py-3 bg-[#2874F0] hover:bg-[#1E5BC6] text-white text-xs font-bold uppercase tracking-wider rounded-xs shadow-xs"
             >
-              Explore Bestsellers
+              Shop Now
             </Link>
             <Link
               to="/offers"
-              className="inline-block px-6 py-3.5 bg-white border border-[#141413] text-[#141413] text-xs font-semibold uppercase tracking-widest hover:bg-[#F3EFEA] transition-colors"
+              className="inline-block px-6 py-3 bg-white border border-[#E0E0E0] text-[#212121] text-xs font-bold uppercase tracking-wider rounded-xs"
             >
-              View Coupons &amp; Deals
+              View Coupons
             </Link>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-          {/* Left: Itemized List + Routine Add-ons */}
-          <div className="lg:col-span-8 space-y-6">
-            {/* Free Shipping Progress Bar */}
-            <div className="p-4 bg-[#F3EFEA] border border-[#E5E0D8] space-y-2.5">
-              <div className="flex items-center justify-between text-xs">
-                {amountForFreeShipping > 0 ? (
-                  <span className="text-[#141413] font-medium flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-[#8C6239] shrink-0" />
-                    <span>
-                      Add{' '}
-                      <strong className="font-mono-tabular text-[#8C6239]">
-                        ₹{amountForFreeShipping.toLocaleString('en-IN')}
-                      </strong>{' '}
-                      more for <strong>FREE Insured Delivery</strong> (Free above ₹
-                      {settings.freeShippingThreshold})
-                    </span>
-                  </span>
-                ) : (
-                  <span className="text-emerald-900 font-semibold flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <span>
-                      Unlocked! Your order qualifies for FREE Express Shipping across India.
-                    </span>
-                  </span>
-                )}
-                <span className="font-mono-tabular text-[11px] font-bold text-[#8C6239]">
-                  {freeShippingProgress}%
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* LEFT COLUMN: FLIPKART "MY CART" ITEM LIST + PLACE ORDER FOOTER */}
+          <div className="lg:col-span-8 space-y-3">
+            {/* Delivery Address / Free Shipping Header Bar */}
+            <div className="p-3.5 sm:p-4 bg-white border border-[#E0E0E0] rounded-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+              <div className="flex items-center gap-2 text-xs text-[#212121]">
+                <MapPin className="w-4 h-4 text-[#2874F0] shrink-0" />
+                <span>
+                  Deliver to: <strong>All India Serviceable PIN Codes</strong>
                 </span>
               </div>
-              <div className="w-full h-2 bg-[#E5E0D8] overflow-hidden">
-                <div
-                  className="h-full bg-[#8C6239] transition-all duration-500"
-                  style={{ width: `${freeShippingProgress}%` }}
-                />
+              <div className="text-xs">
+                {amountForFreeShipping > 0 ? (
+                  <span className="text-[#212121]">
+                    Add{' '}
+                    <strong className="font-mono-tabular text-[#2874F0]">
+                      ₹{amountForFreeShipping.toLocaleString('en-IN')}
+                    </strong>{' '}
+                    more for <strong className="text-[#388E3C]">FREE Delivery</strong>
+                  </span>
+                ) : (
+                  <span className="text-[#388E3C] font-bold">
+                    ✓ Eligible for FREE Express Delivery
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Line Items */}
-            <div className="divide-y divide-[#E5E0D8] border border-[#E5E0D8] bg-white px-4 sm:px-6">
+            {/* Cart Items Container */}
+            <div className="bg-white border border-[#E0E0E0] rounded-xs divide-y divide-[#F0F0F0] shadow-2xs">
               {lineItems.map(
                 ({
                   cartItem,
@@ -159,45 +133,64 @@ export const CartPage: React.FC = () => {
                 }) => (
                   <div
                     key={`${cartItem.productId}_${cartItem.variantLabel}`}
-                    className="py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                    className="p-4 sm:p-6 space-y-4"
                   >
-                    <div className="flex items-center gap-4 w-full sm:w-auto">
-                      <Link
-                        to={`/products/${product.slug}`}
-                        className="w-20 h-20 sm:w-24 sm:h-24 bg-[#F3EFEA] border border-[#E5E0D8] shrink-0 overflow-hidden"
-                      >
-                        <img
-                          src={getOptimizedImageUrl(product.mainImage, 240)}
-                          alt={product.name}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
-                        />
-                      </Link>
-                      <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
                         <Link
                           to={`/products/${product.slug}`}
-                          className="text-sm sm:text-base font-semibold text-[#141413] hover:text-[#8C6239] line-clamp-2"
+                          className="w-20 h-20 sm:w-24 sm:h-24 bg-white p-1.5 border border-[#F0F0F0] shrink-0 overflow-hidden"
                         >
-                          {product.name}
+                          <img
+                            src={getOptimizedImageUrl(product.mainImage, 240)}
+                            alt={product.name}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-contain"
+                          />
                         </Link>
-                        <p className="text-[11px] text-[#78716C] font-mono-tabular">
-                          Pack: {cartItem.variantLabel} · SKU: {sku}
-                        </p>
-                        <div className="flex items-baseline gap-2 font-mono-tabular">
-                          <span className="text-xs sm:text-sm font-bold text-[#141413]">
-                            ₹{unitPrice.toLocaleString('en-IN')}
-                          </span>
-                          {compareAtPrice > unitPrice && (
-                            <span className="text-[11px] text-[#78716C] line-through">
-                              ₹{compareAtPrice.toLocaleString('en-IN')}
+                        <div className="space-y-1">
+                          <Link
+                            to={`/products/${product.slug}`}
+                            className="text-sm sm:text-base font-bold text-[#212121] hover:text-[#2874F0] line-clamp-2"
+                          >
+                            {product.name}
+                          </Link>
+                          <p className="text-xs text-[#878787]">
+                            Pack: {cartItem.variantLabel} · Seller: Cartlane Retail{' '}
+                            <span className="text-[#2874F0] font-bold italic ml-1">
+                              🛡️ Assured
                             </span>
-                          )}
+                          </p>
+                          <div className="flex items-baseline flex-wrap gap-2 font-mono-tabular pt-1">
+                            {compareAtPrice > unitPrice && (
+                              <span className="text-xs text-[#878787] line-through">
+                                ₹{(compareAtPrice * cartItem.quantity).toLocaleString('en-IN')}
+                              </span>
+                            )}
+                            <span className="text-base sm:text-lg font-extrabold text-[#212121]">
+                              ₹{lineSubtotal.toLocaleString('en-IN')}
+                            </span>
+                            {compareAtPrice > unitPrice && (
+                              <span className="text-xs font-extrabold text-[#388E3C]">
+                                {product.discountPercent}% Off
+                              </span>
+                            )}
+                          </div>
                         </div>
+                      </div>
+
+                      <div className="text-xs text-[#212121] sm:text-right">
+                        <p>
+                          Delivery in <strong>{settings.estimatedDeliveryDays}</strong> |{' '}
+                          <span className="text-[#388E3C] font-bold">Free</span>{' '}
+                          <span className="text-[#878787] line-through">₹69</span>
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-5 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-[#ECE7DF]">
-                      <div className="inline-flex items-center border border-[#D6D3D1] bg-[#FAF8F5]">
+                    {/* Flipkart Circular Quantity Stepper + REMOVE Action */}
+                    <div className="flex items-center gap-6 pt-1">
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() =>
@@ -207,11 +200,11 @@ export const CartPage: React.FC = () => {
                               cartItem.quantity - 1
                             )
                           }
-                          className="w-9 h-9 flex items-center justify-center text-[#141413] hover:bg-[#E5E0D8]"
+                          className="w-7 h-7 rounded-full border border-[#C2C2C2] flex items-center justify-center text-[#212121] hover:border-[#212121]"
                         >
-                          <Minus className="w-3.5 h-3.5" />
+                          <Minus className="w-3 h-3" />
                         </button>
-                        <span className="px-3.5 text-xs font-mono-tabular font-semibold">
+                        <span className="w-10 h-7 border border-[#E0E0E0] flex items-center justify-center text-xs font-mono-tabular font-bold">
                           {cartItem.quantity}
                         </span>
                         <button
@@ -224,16 +217,10 @@ export const CartPage: React.FC = () => {
                               cartItem.quantity + 1
                             )
                           }
-                          className="w-9 h-9 flex items-center justify-center text-[#141413] hover:bg-[#E5E0D8] disabled:opacity-40"
+                          className="w-7 h-7 rounded-full border border-[#C2C2C2] flex items-center justify-center text-[#212121] hover:border-[#212121] disabled:opacity-40"
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          <Plus className="w-3 h-3" />
                         </button>
-                      </div>
-
-                      <div className="text-right min-w-[85px] font-mono-tabular">
-                        <p className="text-sm sm:text-base font-bold text-[#141413]">
-                          ₹{lineSubtotal.toLocaleString('en-IN')}
-                        </p>
                       </div>
 
                       <button
@@ -241,51 +228,59 @@ export const CartPage: React.FC = () => {
                         onClick={() =>
                           removeFromCart(cartItem.productId, cartItem.variantLabel)
                         }
-                        aria-label="Remove item"
-                        className="p-2 text-[#78716C] hover:text-red-700"
+                        className="text-xs font-extrabold uppercase text-[#212121] hover:text-[#2874F0]"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        REMOVE
                       </button>
                     </div>
                   </div>
                 )
               )}
+
+              {/* Bottom Sticky Place Order Bar (Desktop) */}
+              <div className="hidden lg:flex p-4 bg-white items-center justify-between shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+                <Link
+                  to="/products"
+                  className="text-xs font-bold text-[#2874F0] hover:underline"
+                >
+                  ← Continue Shopping
+                </Link>
+                <Link
+                  to="/checkout"
+                  className="px-10 py-3.5 bg-[#FB641B] hover:bg-[#E85812] text-white text-sm font-extrabold uppercase tracking-wider rounded-xs shadow-sm"
+                >
+                  PLACE ORDER
+                </Link>
+              </div>
             </div>
 
-            {/* Complete Your Grooming Routine Upsell Strip */}
+            {/* Frequently Bought Together / Add-ons */}
             {recommendedAddons.length > 0 && (
-              <div className="p-4 sm:p-6 bg-[#FAF8F5] border border-[#E5E0D8] space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#8C6239]" />
-                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#141413]">
-                      Complete Your Grooming Routine
-                    </h3>
-                  </div>
-                  <span className="text-[11px] text-[#78716C]">Quick 1-Tap Add</span>
-                </div>
-
+              <div className="p-4 sm:p-5 bg-white border border-[#E0E0E0] rounded-xs space-y-3 shadow-2xs">
+                <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-[#212121]">
+                  Frequently Bought Together
+                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {recommendedAddons.map((addon) => (
                     <div
                       key={addon.id}
-                      className="p-3 bg-white border border-[#E5E0D8] flex items-center justify-between gap-3"
+                      className="p-2.5 border border-[#E0E0E0] rounded-xs flex items-center justify-between gap-2"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <img
                           src={getOptimizedImageUrl(addon.mainImage, 120)}
                           alt={addon.name}
                           referrerPolicy="no-referrer"
-                          className="w-12 h-12 object-cover bg-[#F3EFEA] shrink-0"
+                          className="w-11 h-11 object-contain bg-white shrink-0"
                         />
                         <div className="min-w-0">
                           <Link
                             to={`/products/${addon.slug}`}
-                            className="text-xs font-semibold text-[#141413] hover:text-[#8C6239] line-clamp-1"
+                            className="text-xs font-bold text-[#212121] hover:text-[#2874F0] line-clamp-1"
                           >
                             {addon.name}
                           </Link>
-                          <p className="text-xs font-mono-tabular font-bold text-[#8C6239]">
+                          <p className="text-xs font-mono-tabular font-extrabold text-[#388E3C]">
                             ₹{addon.price}
                           </p>
                         </div>
@@ -293,13 +288,9 @@ export const CartPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() =>
-                          addToCart({
-                            productId: addon.id,
-                            variantLabel: addon.variants[0]?.label || 'Standard',
-                            quantity: 1,
-                          })
+                          addToCart(addon.id, addon.variants[0]?.label || 'Standard', 1, false)
                         }
-                        className="shrink-0 px-3 py-2 bg-[#141413] hover:bg-[#8C6239] text-white text-[10px] font-semibold uppercase tracking-wider transition-colors"
+                        className="shrink-0 px-2.5 py-1.5 bg-[#FF9F00] hover:bg-[#FB641B] text-white text-[10px] font-bold uppercase rounded-xs"
                       >
                         + Add
                       </button>
@@ -310,17 +301,13 @@ export const CartPage: React.FC = () => {
             )}
           </div>
 
-          {/* Right: Order Summary & Privilege Coupons */}
-          <div className="lg:col-span-4 bg-[#F3EFEA] border border-[#E5E0D8] p-5 sm:p-8 space-y-6 lg:sticky lg:top-28">
-            <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
-              Order Summary
-            </h2>
-
-            {/* Coupon Form */}
-            <div className="space-y-2.5">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#141413] flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-[#8C6239]" />
-                <span>Privilege Coupon Code</span>
+          {/* RIGHT COLUMN: FLIPKART "PRICE DETAILS" CARD */}
+          <div className="lg:col-span-4 space-y-3 lg:sticky lg:top-24">
+            {/* Coupons Box */}
+            <div className="bg-white border border-[#E0E0E0] rounded-xs p-4 space-y-3 shadow-2xs">
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-[#878787] flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-[#388E3C]" />
+                <span>Apply Privilege Coupon</span>
               </label>
               <form
                 onSubmit={(e) => {
@@ -333,30 +320,26 @@ export const CartPage: React.FC = () => {
                   type="text"
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                  placeholder="Enter code (e.g. ROYAL15)"
-                  className="flex-1 bg-white border border-[#D6D3D1] px-3 py-2.5 text-xs font-mono-tabular uppercase"
+                  placeholder="Enter Coupon (e.g. ROYAL15)"
+                  className="flex-1 bg-[#F8F9FA] border border-[#E0E0E0] px-3 py-2 text-xs font-mono-tabular uppercase"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2.5 bg-[#141413] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#8C6239] transition-colors"
+                  className="px-4 py-2 bg-[#2874F0] text-white text-xs font-bold uppercase rounded-xs"
                 >
                   Apply
                 </button>
               </form>
-              {couponError && <p className="text-xs text-red-700">{couponError}</p>}
+              {couponError && <p className="text-xs text-red-600">{couponError}</p>}
               {appliedCoupon && (
-                <p className="text-xs text-emerald-800 font-semibold">
-                  ✓ Applied {appliedCoupon.code}: Saved ₹
-                  {couponDiscount.toLocaleString('en-IN')}
+                <p className="text-xs text-[#388E3C] font-bold">
+                  ✓ Coupon {appliedCoupon.code} applied (-₹
+                  {couponDiscount.toLocaleString('en-IN')})
                 </p>
               )}
 
-              {/* Available Coupons Helper */}
               {coupons.length > 0 && (
-                <div className="pt-2 space-y-1.5">
-                  <p className="text-[11px] uppercase tracking-wider text-[#78716C] font-semibold">
-                    Tap to Apply Storefront Coupon:
-                  </p>
+                <div className="pt-1 space-y-1.5">
                   {coupons.slice(0, 3).map((c) => (
                     <button
                       key={c.id}
@@ -365,90 +348,111 @@ export const CartPage: React.FC = () => {
                         setCouponInput(c.code);
                         applyCouponCode(c.code);
                       }}
-                      className="block w-full text-left p-2.5 bg-white border border-[#E5E0D8] hover:border-[#8C6239] text-xs transition-colors"
+                      className="block w-full text-left p-2 bg-[#F8F9FA] border border-dashed border-[#C2C2C2] hover:border-[#2874F0] text-xs rounded-xs transition-colors"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-mono-tabular font-bold text-[#8C6239]">
+                        <span className="font-mono-tabular font-extrabold text-[#2874F0]">
                           {c.code}
                         </span>
-                        <span className="text-[10px] font-mono-tabular uppercase text-[#141413] font-semibold">
+                        <span className="text-[10px] font-bold uppercase text-[#388E3C]">
                           Tap to Apply
                         </span>
                       </div>
-                      <p className="text-[11px] text-[#57534E] mt-0.5">{c.description}</p>
+                      <p className="text-[11px] text-[#878787] mt-0.5">{c.description}</p>
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="space-y-2.5 text-sm border-t border-[#E5E0D8] pt-4">
-              <div className="flex justify-between text-[#57534E]">
-                <span>Bag Subtotal</span>
-                <span className="font-mono-tabular">₹{subtotal.toLocaleString('en-IN')}</span>
+            {/* Official Flipkart PRICE DETAILS Card */}
+            <div className="bg-white border border-[#E0E0E0] rounded-xs shadow-2xs overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-[#F0F0F0]">
+                <h2 className="text-sm font-extrabold uppercase tracking-wider text-[#878787]">
+                  Price Details
+                </h2>
               </div>
-              {productSavings > 0 && (
-                <div className="flex justify-between text-[#8C6239]">
-                  <span>MRP Discount Savings</span>
+
+              <div className="p-5 space-y-3.5 text-xs sm:text-sm">
+                <div className="flex justify-between text-[#212121]">
+                  <span>
+                    Price ({lineItems.reduce((s, i) => s + i.cartItem.quantity, 0)} items)
+                  </span>
                   <span className="font-mono-tabular">
-                    -₹{productSavings.toLocaleString('en-IN')}
+                    ₹{totalMrp.toLocaleString('en-IN')}
                   </span>
                 </div>
-              )}
-              {couponDiscount > 0 && (
-                <div className="flex justify-between text-emerald-800 font-medium">
-                  <span>Coupon ({appliedCoupon?.code})</span>
+
+                {productSavings > 0 && (
+                  <div className="flex justify-between text-[#212121]">
+                    <span>Discount</span>
+                    <span className="font-mono-tabular text-[#388E3C] font-semibold">
+                      − ₹{productSavings.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
+
+                {couponDiscount > 0 && (
+                  <div className="flex justify-between text-[#212121]">
+                    <span>Coupons for you ({appliedCoupon?.code})</span>
+                    <span className="font-mono-tabular text-[#388E3C] font-semibold">
+                      − ₹{couponDiscount.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-between text-[#212121]">
+                  <span>Delivery Charges</span>
                   <span className="font-mono-tabular">
-                    -₹{couponDiscount.toLocaleString('en-IN')}
+                    {shippingFee === 0 ? (
+                      <>
+                        <span className="text-[#878787] line-through mr-1">₹69</span>
+                        <span className="text-[#388E3C] font-bold">Free</span>
+                      </>
+                    ) : (
+                      `₹${shippingFee}`
+                    )}
                   </span>
                 </div>
-              )}
-              <div className="flex justify-between text-[#57534E]">
-                <span>Insured Shipping</span>
-                <span className="font-mono-tabular font-semibold">
-                  {shippingFee === 0 ? 'FREE' : `₹${shippingFee}`}
-                </span>
-              </div>
-              <div className="flex justify-between text-lg font-bold text-[#141413] pt-3 border-t border-[#E5E0D8]">
-                <span>Total Payable</span>
-                <span className="font-mono-tabular">
-                  ₹{finalPayable.toLocaleString('en-IN')}
-                </span>
+
+                <div className="flex justify-between text-base font-extrabold text-[#212121] py-3.5 border-y border-dashed border-[#E0E0E0]">
+                  <span>Total Amount</span>
+                  <span className="font-mono-tabular">
+                    ₹{finalPayable.toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                <p className="text-xs font-extrabold text-[#388E3C]">
+                  You will save ₹{totalSavings.toLocaleString('en-IN')} on this order
+                </p>
               </div>
             </div>
 
-            <Link
-              to="/checkout"
-              className="flex items-center justify-center gap-2 w-full py-4 text-center bg-[#141413] hover:bg-[#8C6239] text-[#FAF8F5] text-xs font-semibold uppercase tracking-widest transition-colors"
-            >
-              <span>Proceed to Checkout</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-
-            <div className="pt-2 space-y-1.5 text-[11px] text-[#57534E]">
-              <p className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#8C6239] shrink-0" />
-                <span>100% Authentic Cartlane Formulations · Cash on Delivery Available</span>
-              </p>
+            <div className="p-3 flex items-center gap-2.5 text-xs text-[#878787]">
+              <ShieldCheck className="w-6 h-6 text-[#878787] shrink-0" />
+              <span>
+                Safe and Secure Payments. Easy returns. 100% Authentic Cartlane products.
+              </span>
             </div>
           </div>
 
-          {/* STICKY MOBILE BOTTOM CART CHECKOUT BAR (lg:hidden) */}
-          <div className="lg:hidden fixed bottom-16 left-0 right-0 z-30 bg-[#FAF8F5]/95 backdrop-blur-md border-t border-[#E5E0D8] px-4 py-3 flex items-center justify-between gap-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+          {/* STICKY MOBILE BOTTOM PLACE ORDER BAR (lg:hidden) */}
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#E0E0E0] px-4 py-2.5 flex items-center justify-between gap-3 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#78716C]">
-                Total Payable ({lineItems.length} items)
-              </p>
-              <p className="font-mono-tabular text-base font-bold text-[#141413]">
+              {totalMrp > finalPayable && (
+                <p className="text-[11px] font-mono-tabular text-[#878787] line-through">
+                  ₹{totalMrp.toLocaleString('en-IN')}
+                </p>
+              )}
+              <p className="font-mono-tabular text-base font-extrabold text-[#212121]">
                 ₹{finalPayable.toLocaleString('en-IN')}
               </p>
             </div>
             <Link
               to="/checkout"
-              className="min-h-[44px] px-6 bg-[#141413] text-[#FAF8F5] text-xs font-semibold uppercase tracking-widest inline-flex items-center gap-2"
+              className="min-h-[42px] px-7 bg-[#FB641B] text-white text-xs font-extrabold uppercase tracking-wider rounded-xs inline-flex items-center justify-center"
             >
-              <span>Checkout</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              Place Order
             </Link>
           </div>
         </div>
@@ -499,7 +503,6 @@ export const CheckoutPage: React.FC = () => {
     },
   });
 
-  // Pre-fill when user profile or default saved address loads
   useEffect(() => {
     if (addresses.length > 0 && !selectedAddressId) {
       const def = addresses.find((a) => a.isDefault) || addresses[0];
@@ -586,7 +589,7 @@ export const CheckoutPage: React.FC = () => {
       });
 
       await clearCart();
-      showToast(`Order ${order.id} confirmed.`);
+      showToast(`Order ${order.id} confirmed!`);
       navigate(`/account/orders/${order.id}`);
     } catch (err) {
       setOrderError(
@@ -600,383 +603,393 @@ export const CheckoutPage: React.FC = () => {
   if (cartTotals.lineItems.length === 0) {
     return (
       <main className="max-w-[1440px] mx-auto px-6 py-20 text-center space-y-4">
-        <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
-          Your Cartlane bag is empty
+        <h1 className="text-2xl font-extrabold text-[#212121]">
+          Your Cartlane cart is empty
         </h1>
         <Link
           to="/products"
-          className="inline-block px-6 py-3 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest"
+          className="inline-block px-6 py-3 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-widest rounded-xs"
         >
-          Browse Formulations
+          Shop Products
         </Link>
       </main>
     );
   }
 
   return (
-    <main className="max-w-[1440px] mx-auto px-3 sm:px-6 pt-5 pb-32 md:py-12 space-y-8 sm:space-y-10">
-      <div className="border-b border-[#E5E0D8] pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
-            Cartlane Verified Dispatch Checkout
-          </p>
-          <h1 className="font-serif-display text-3xl sm:text-4xl font-bold text-[#141413]">
-            Shipping &amp; Order Confirmation
-          </h1>
-        </div>
-        <Link
-          to="/cart"
-          className="text-xs font-semibold uppercase tracking-wider text-[#141413] underline underline-offset-4"
-        >
-          ← Back to Bag
-        </Link>
-      </div>
-
-      {/* Authentication Gate */}
+    <main className="max-w-[1440px] mx-auto px-2 sm:px-4 pt-4 pb-32 md:py-8">
       {!user ? (
-        <div className="p-6 sm:p-8 bg-[#F3EFEA] border border-[#E5E0D8] max-w-xl space-y-4">
-          <div className="flex items-center gap-2.5 text-[#141413]">
-            <Lock className="w-5 h-5 text-[#8C6239]" />
-            <h2 className="font-serif-display text-2xl font-bold">
-              Sign in with Google to Complete Your Order
-            </h2>
+        <div className="max-w-xl mx-auto bg-white border border-[#E0E0E0] rounded-xs overflow-hidden shadow-xs">
+          <div className="px-6 py-4 bg-[#2874F0] text-white flex items-center gap-3">
+            <span className="w-6 h-6 bg-white text-[#2874F0] text-xs font-extrabold flex items-center justify-center rounded-xs">
+              1
+            </span>
+            <h1 className="text-sm font-extrabold uppercase tracking-wider">
+              LOGIN OR SIGNUP
+            </h1>
           </div>
-          <p className="text-xs text-[#57534E] leading-relaxed">
-            To protect your order history, enable real-time shipment tracking, and verify inventory reservation, please authenticate with your Google account.
-          </p>
-          <button
-            type="button"
-            onClick={loginWithGoogle}
-            className="px-6 py-3.5 bg-[#141413] text-[#FAF8F5] text-xs font-semibold uppercase tracking-widest hover:bg-[#8C6239] transition-colors"
-          >
-            Continue with Google Sign-In
-          </button>
+          <div className="p-6 space-y-4">
+            <p className="text-xs text-[#212121] leading-relaxed">
+              Sign in with Google to unlock Cash on Delivery checkout, instant order confirmation, and live shipment tracking.
+            </p>
+            <button
+              type="button"
+              onClick={loginWithGoogle}
+              className="px-8 py-3.5 bg-[#FB641B] hover:bg-[#E85812] text-white text-xs font-extrabold uppercase tracking-wider rounded-xs"
+            >
+              CONTINUE WITH GOOGLE
+            </button>
+          </div>
         </div>
       ) : (
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start"
         >
-          {/* Left: Shipping Details & Payment Method */}
-          <div className="lg:col-span-7 space-y-8">
-            {/* Saved Addresses Selector */}
-            {addresses.length > 0 && (
-              <div className="space-y-3">
-                <h2 className="text-xs font-semibold uppercase tracking-widest text-[#141413]">
-                  Select a Saved Shipping Address
+          {/* LEFT COLUMN: FLIPKART 4-STEP CHECKOUT ACCORDION */}
+          <div className="lg:col-span-8 space-y-3">
+            {/* STEP 1: LOGIN VERIFIED */}
+            <div className="bg-white border border-[#E0E0E0] rounded-xs p-4 flex items-center justify-between shadow-2xs">
+              <div className="flex items-start gap-3">
+                <span className="w-6 h-6 bg-[#F1F3F6] text-[#2874F0] text-xs font-extrabold flex items-center justify-center rounded-xs shrink-0">
+                  1
+                </span>
+                <div>
+                  <p className="text-xs font-extrabold uppercase text-[#878787] flex items-center gap-1.5">
+                    <span>LOGIN</span>
+                    <Check className="w-4 h-4 text-[#2874F0]" />
+                  </p>
+                  <p className="text-xs font-bold text-[#212121] mt-0.5">
+                    {userProfile?.displayName || user.displayName} ·{' '}
+                    <span className="font-normal text-[#878787]">{user.email}</span>
+                  </p>
+                </div>
+              </div>
+              <span className="text-[11px] font-bold text-[#388E3C] uppercase">
+                Verified
+              </span>
+            </div>
+
+            {/* STEP 2: DELIVERY ADDRESS */}
+            <div className="bg-white border border-[#E0E0E0] rounded-xs overflow-hidden shadow-2xs">
+              <div className="px-4 py-3 bg-[#2874F0] text-white flex items-center gap-3">
+                <span className="w-6 h-6 bg-white text-[#2874F0] text-xs font-extrabold flex items-center justify-center rounded-xs">
+                  2
+                </span>
+                <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider">
+                  DELIVERY ADDRESS
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {addresses.map((addr) => (
-                    <button
-                      key={addr.id}
-                      type="button"
-                      onClick={() => handleSelectSavedAddress(addr.id)}
-                      className={`p-4 text-left border transition-colors ${
-                        selectedAddressId === addr.id
-                          ? 'border-[#141413] bg-[#F3EFEA]'
-                          : 'border-[#E5E0D8] bg-white hover:border-[#8C6239]'
-                      }`}
-                    >
-                      <p className="text-xs font-bold text-[#141413]">{addr.fullName}</p>
-                      <p className="text-xs text-[#57534E] mt-1 line-clamp-2">
-                        {addr.house}, {addr.street}, {addr.city}, {addr.state} -{' '}
-                        {addr.pinCode}
-                      </p>
-                      <p className="text-[11px] font-mono-tabular text-[#78716C] mt-1">
-                        Phone: {addr.phone}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Shipping Address Form */}
-            <div className="p-5 sm:p-8 bg-white border border-[#E5E0D8] space-y-5">
-              <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
-                Delivery Recipient &amp; Address
-              </h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-[#141413] mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    {...register('fullName')}
-                    className="w-full border border-[#D6D3D1] px-3.5 py-2.5 text-xs"
-                  />
-                  {errors.fullName && (
-                    <p className="text-[11px] text-red-700 mt-1">{errors.fullName.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[#141413] mb-1">
-                    Email Address *
-                  </label>
-                  <input
-                    {...register('email')}
-                    className="w-full border border-[#D6D3D1] px-3.5 py-2.5 text-xs"
-                  />
-                  {errors.email && (
-                    <p className="text-[11px] text-red-700 mt-1">{errors.email.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[#141413] mb-1">
-                    Mobile Number (10 digits) *
-                  </label>
-                  <input
-                    {...register('phone')}
-                    placeholder="9876543210"
-                    className="w-full border border-[#D6D3D1] px-3.5 py-2.5 text-xs font-mono-tabular"
-                  />
-                  {errors.phone && (
-                    <p className="text-[11px] text-red-700 mt-1">{errors.phone.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[#141413] mb-1">
-                    PIN Code (6 digits) *
-                  </label>
-                  <input
-                    {...register('pinCode')}
-                    maxLength={6}
-                    placeholder="110001"
-                    className="w-full border border-[#D6D3D1] px-3.5 py-2.5 text-xs font-mono-tabular"
-                  />
-                  {errors.pinCode && (
-                    <p className="text-[11px] text-red-700 mt-1">{errors.pinCode.message}</p>
-                  )}
-                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-[#141413] mb-1">
-                  House / Flat / Building / Apartment *
-                </label>
-                <input
-                  {...register('house')}
-                  className="w-full border border-[#D6D3D1] px-3.5 py-2.5 text-xs"
-                />
-                {errors.house && (
-                  <p className="text-[11px] text-red-700 mt-1">{errors.house.message}</p>
+              <div className="p-4 sm:p-6 space-y-5">
+                {addresses.length > 0 && (
+                  <div className="space-y-2.5">
+                    <p className="text-xs font-bold uppercase text-[#878787]">
+                      Saved Addresses
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {addresses.map((addr) => (
+                        <button
+                          key={addr.id}
+                          type="button"
+                          onClick={() => handleSelectSavedAddress(addr.id)}
+                          className={`p-3.5 text-left border rounded-xs transition-colors ${
+                            selectedAddressId === addr.id
+                              ? 'border-[#2874F0] bg-[#E3F2FD]/30'
+                              : 'border-[#E0E0E0] bg-white hover:border-[#2874F0]'
+                          }`}
+                        >
+                          <p className="text-xs font-extrabold text-[#212121]">
+                            {addr.fullName} · {addr.phone}
+                          </p>
+                          <p className="text-xs text-[#555555] mt-1 line-clamp-2">
+                            {addr.house}, {addr.street}, {addr.city}, {addr.state} -{' '}
+                            <strong>{addr.pinCode}</strong>
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </div>
 
-              <div>
-                <label className="block text-xs font-medium text-[#141413] mb-1">
-                  Street, Sector &amp; Locality *
-                </label>
-                <input
-                  {...register('street')}
-                  className="w-full border border-[#D6D3D1] px-3.5 py-2.5 text-xs"
-                />
-                {errors.street && (
-                  <p className="text-[11px] text-red-700 mt-1">{errors.street.message}</p>
-                )}
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#212121] mb-1">
+                      Full Name *
+                    </label>
+                    <input
+                      {...register('fullName')}
+                      className="w-full border border-[#D0D0D0] px-3 py-2.5 text-xs rounded-xs focus:outline-none focus:border-[#2874F0]"
+                    />
+                    {errors.fullName && (
+                      <p className="text-[11px] text-red-600 mt-1">
+                        {errors.fullName.message}
+                      </p>
+                    )}
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#212121] mb-1">
+                      10-digit mobile number *
+                    </label>
+                    <input
+                      {...register('phone')}
+                      placeholder="9876543210"
+                      className="w-full border border-[#D0D0D0] px-3 py-2.5 text-xs font-mono-tabular rounded-xs focus:outline-none focus:border-[#2874F0]"
+                    />
+                    {errors.phone && (
+                      <p className="text-[11px] text-red-600 mt-1">{errors.phone.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#212121] mb-1">
+                      Pincode (6 digits) *
+                    </label>
+                    <input
+                      {...register('pinCode')}
+                      maxLength={6}
+                      placeholder="110001"
+                      className="w-full border border-[#D0D0D0] px-3 py-2.5 text-xs font-mono-tabular rounded-xs focus:outline-none focus:border-[#2874F0]"
+                    />
+                    {errors.pinCode && (
+                      <p className="text-[11px] text-red-600 mt-1">
+                        {errors.pinCode.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#212121] mb-1">
+                      Email Address *
+                    </label>
+                    <input
+                      {...register('email')}
+                      className="w-full border border-[#D0D0D0] px-3 py-2.5 text-xs rounded-xs focus:outline-none focus:border-[#2874F0]"
+                    />
+                    {errors.email && (
+                      <p className="text-[11px] text-red-600 mt-1">{errors.email.message}</p>
+                    )}
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-xs font-medium text-[#141413] mb-1">
-                    City *
+                  <label className="block text-xs font-semibold text-[#212121] mb-1">
+                    Flat, House no., Building, Company, Apartment *
                   </label>
                   <input
-                    {...register('city')}
-                    className="w-full border border-[#D6D3D1] px-3.5 py-2.5 text-xs"
+                    {...register('house')}
+                    className="w-full border border-[#D0D0D0] px-3 py-2.5 text-xs rounded-xs focus:outline-none focus:border-[#2874F0]"
                   />
-                  {errors.city && (
-                    <p className="text-[11px] text-red-700 mt-1">{errors.city.message}</p>
+                  {errors.house && (
+                    <p className="text-[11px] text-red-600 mt-1">{errors.house.message}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-[#141413] mb-1">
-                    State *
+                  <label className="block text-xs font-semibold text-[#212121] mb-1">
+                    Area, Street, Sector, Village *
                   </label>
                   <input
-                    {...register('state')}
-                    className="w-full border border-[#D6D3D1] px-3.5 py-2.5 text-xs"
+                    {...register('street')}
+                    className="w-full border border-[#D0D0D0] px-3 py-2.5 text-xs rounded-xs focus:outline-none focus:border-[#2874F0]"
                   />
-                  {errors.state && (
-                    <p className="text-[11px] text-red-700 mt-1">{errors.state.message}</p>
+                  {errors.street && (
+                    <p className="text-[11px] text-red-600 mt-1">{errors.street.message}</p>
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-[#141413] mb-1">
-                    Landmark (Optional)
-                  </label>
-                  <input
-                    {...register('landmark')}
-                    className="w-full border border-[#D6D3D1] px-3.5 py-2.5 text-xs"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#212121] mb-1">
+                      City / District / Town *
+                    </label>
+                    <input
+                      {...register('city')}
+                      className="w-full border border-[#D0D0D0] px-3 py-2.5 text-xs rounded-xs focus:outline-none focus:border-[#2874F0]"
+                    />
+                    {errors.city && (
+                      <p className="text-[11px] text-red-600 mt-1">{errors.city.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#212121] mb-1">
+                      State *
+                    </label>
+                    <input
+                      {...register('state')}
+                      className="w-full border border-[#D0D0D0] px-3 py-2.5 text-xs rounded-xs focus:outline-none focus:border-[#2874F0]"
+                    />
+                    {errors.state && (
+                      <p className="text-[11px] text-red-600 mt-1">{errors.state.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#212121] mb-1">
+                      Landmark (Optional)
+                    </label>
+                    <input
+                      {...register('landmark')}
+                      className="w-full border border-[#D0D0D0] px-3 py-2.5 text-xs rounded-xs focus:outline-none focus:border-[#2874F0]"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-medium text-[#141413] mb-1">
-                  Delivery Instructions (Optional)
-                </label>
-                <input
-                  {...register('deliveryInstructions')}
-                  placeholder="Gate security code, preferred delivery hours..."
-                  className="w-full border border-[#D6D3D1] px-3.5 py-2.5 text-xs"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  id="save-addr"
-                  type="checkbox"
-                  {...register('saveAddress')}
-                  className="w-4 h-4 accent-[#141413]"
-                />
-                <label htmlFor="save-addr" className="text-xs text-[#57534E]">
-                  Save this address to my Cartlane account for future orders
-                </label>
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    id="save-addr"
+                    type="checkbox"
+                    {...register('saveAddress')}
+                    className="w-4 h-4 accent-[#2874F0]"
+                  />
+                  <label htmlFor="save-addr" className="text-xs text-[#212121]">
+                    Save this address for faster future checkout
+                  </label>
+                </div>
               </div>
             </div>
 
-            {/* Payment Method Section */}
-            <div className="p-5 sm:p-8 bg-white border border-[#E5E0D8] space-y-4">
-              <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
-                Payment Method
-              </h2>
-
-              <div className="p-4 border border-[#141413] bg-[#FAF8F5] flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#141413]">
-                    Cash on Delivery (Pay on Doorstep Arrival)
-                  </p>
-                  <p className="text-xs text-[#57534E]">
-                    Pay in cash or UPI directly to the courier partner upon receiving your sealed Cartlane parcel.
-                  </p>
-                </div>
-                <span className="text-xs font-mono-tabular font-semibold text-[#8C6239] shrink-0">
-                  ACTIVE
+            {/* STEP 3: PAYMENT OPTIONS */}
+            <div className="bg-white border border-[#E0E0E0] rounded-xs overflow-hidden shadow-2xs">
+              <div className="px-4 py-3 bg-[#2874F0] text-white flex items-center gap-3">
+                <span className="w-6 h-6 bg-white text-[#2874F0] text-xs font-extrabold flex items-center justify-center rounded-xs">
+                  3
                 </span>
+                <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider">
+                  PAYMENT OPTIONS
+                </h2>
+              </div>
+
+              <div className="p-4 sm:p-6 space-y-4">
+                <div className="p-4 border-2 border-[#2874F0] bg-[#E3F2FD]/25 rounded-xs flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      checked
+                      readOnly
+                      className="mt-1 w-4 h-4 accent-[#2874F0]"
+                    />
+                    <div>
+                      <p className="text-xs sm:text-sm font-extrabold text-[#212121]">
+                        Cash on Delivery (Pay via Cash or UPI at Doorstep)
+                      </p>
+                      <p className="text-xs text-[#555555] mt-0.5">
+                        Zero extra COD handling charges. Pay upon receiving your sealed Cartlane order.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-extrabold text-[#388E3C] shrink-0">
+                    SELECTED
+                  </span>
+                </div>
+
+                {orderError && (
+                  <div className="p-3 bg-red-50 border border-red-300 text-xs text-red-800 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{orderError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full sm:w-auto px-10 py-4 bg-[#FB641B] hover:bg-[#E85812] disabled:opacity-50 text-white text-xs sm:text-sm font-extrabold uppercase tracking-wider rounded-xs shadow-sm transition-colors"
+                >
+                  {submitting
+                    ? 'CONFIRMING ORDER...'
+                    : `CONFIRM COD ORDER · ₹${cartTotals.finalPayable.toLocaleString('en-IN')}`}
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Right: Authoritative Order Summary */}
-          <div className="lg:col-span-5 bg-[#F3EFEA] border border-[#E5E0D8] p-5 sm:p-8 space-y-6 lg:sticky lg:top-28">
-            <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
-              Authoritative Order Breakdown
-            </h2>
+          {/* RIGHT COLUMN: PRICE DETAILS SUMMARY */}
+          <div className="lg:col-span-4 space-y-3 lg:sticky lg:top-24">
+            <div className="bg-white border border-[#E0E0E0] rounded-xs shadow-2xs overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-[#F0F0F0]">
+                <h2 className="text-sm font-extrabold uppercase tracking-wider text-[#878787]">
+                  Order Summary ({cartTotals.lineItems.length} Items)
+                </h2>
+              </div>
 
-            <div className="divide-y divide-[#E5E0D8] max-h-72 overflow-y-auto pr-1">
-              {cartTotals.lineItems.map(({ cartItem, product, lineSubtotal }) => (
-                <div
-                  key={`${cartItem.productId}_${cartItem.variantLabel}`}
-                  className="py-3 flex items-center justify-between gap-4 text-xs"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src={getOptimizedImageUrl(product.mainImage, 100)}
-                      alt={product.name}
-                      referrerPolicy="no-referrer"
-                      className="w-11 h-11 object-cover bg-white border border-[#E5E0D8] shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <p className="font-semibold text-[#141413] truncate">{product.name}</p>
-                      <p className="text-[#78716C]">
-                        {cartItem.variantLabel} × {cartItem.quantity}
-                      </p>
+              <div className="p-5 space-y-3">
+                <div className="divide-y divide-[#F0F0F0] max-h-60 overflow-y-auto pr-1">
+                  {cartTotals.lineItems.map(({ cartItem, product, lineSubtotal }) => (
+                    <div
+                      key={`${cartItem.productId}_${cartItem.variantLabel}`}
+                      className="py-2.5 flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img
+                          src={getOptimizedImageUrl(product.mainImage, 100)}
+                          alt={product.name}
+                          referrerPolicy="no-referrer"
+                          className="w-10 h-10 object-contain bg-white border border-[#F0F0F0] shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-bold text-[#212121] truncate">{product.name}</p>
+                          <p className="text-[#878787]">
+                            {cartItem.variantLabel} × {cartItem.quantity}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="font-mono-tabular font-bold text-[#212121] shrink-0">
+                        ₹{lineSubtotal.toLocaleString('en-IN')}
+                      </span>
                     </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2 text-xs border-t border-[#F0F0F0] pt-3">
+                  <div className="flex justify-between text-[#212121]">
+                    <span>Items Subtotal</span>
+                    <span className="font-mono-tabular">
+                      ₹{cartTotals.subtotal.toLocaleString('en-IN')}
+                    </span>
                   </div>
-                  <span className="font-mono-tabular font-semibold text-[#141413] shrink-0">
-                    ₹{lineSubtotal.toLocaleString('en-IN')}
-                  </span>
+                  {cartTotals.couponDiscount > 0 && (
+                    <div className="flex justify-between text-[#388E3C] font-semibold">
+                      <span>Coupon ({cartTotals.appliedCoupon?.code})</span>
+                      <span className="font-mono-tabular">
+                        − ₹{cartTotals.couponDiscount.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-[#212121]">
+                    <span>Delivery Charges</span>
+                    <span className="font-mono-tabular text-[#388E3C] font-bold">
+                      {cartTotals.shippingFee === 0 ? 'FREE' : `₹${cartTotals.shippingFee}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-base font-extrabold text-[#212121] pt-3 border-t border-dashed border-[#E0E0E0]">
+                    <span>Total Payable</span>
+                    <span className="font-mono-tabular">
+                      ₹{cartTotals.finalPayable.toLocaleString('en-IN')}
+                    </span>
+                  </div>
                 </div>
-              ))}
-            </div>
-
-            <div className="space-y-2 text-xs border-t border-[#E5E0D8] pt-4">
-              <div className="flex justify-between text-[#57534E]">
-                <span>Items Subtotal</span>
-                <span className="font-mono-tabular">
-                  ₹{cartTotals.subtotal.toLocaleString('en-IN')}
-                </span>
               </div>
-              {cartTotals.couponDiscount > 0 && (
-                <div className="flex justify-between text-emerald-800 font-medium">
-                  <span>Privilege Coupon ({cartTotals.appliedCoupon?.code})</span>
-                  <span className="font-mono-tabular">
-                    -₹{cartTotals.couponDiscount.toLocaleString('en-IN')}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between text-[#57534E]">
-                <span>Shipping Fee</span>
-                <span className="font-mono-tabular">
-                  {cartTotals.shippingFee === 0
-                    ? 'COMPLIMENTARY'
-                    : `₹${cartTotals.shippingFee}`}
-                </span>
-              </div>
-              <div className="flex justify-between text-base font-bold text-[#141413] pt-3 border-t border-[#E5E0D8]">
-                <span>Payable on Delivery</span>
-                <span className="font-mono-tabular">
-                  ₹{cartTotals.finalPayable.toLocaleString('en-IN')}
-                </span>
-              </div>
-            </div>
-
-            {orderError && (
-              <div className="p-3 bg-red-50 border border-red-300 text-xs text-red-800 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{orderError}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-4 bg-[#141413] hover:bg-[#8C6239] disabled:opacity-50 text-[#FAF8F5] text-xs font-semibold uppercase tracking-widest transition-colors"
-            >
-              {submitting
-                ? 'Reserving Stock & Placing Order...'
-                : `Place COD Order · ₹${cartTotals.finalPayable.toLocaleString('en-IN')}`}
-            </button>
-
-            <div className="pt-2 space-y-2 text-[11px] text-[#57534E]">
-              <p className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#8C6239] shrink-0" />
-                <span>
-                  Inventory and pricing are verified transactionally in Firestore before order confirmation.
-                </span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Truck className="w-4 h-4 text-[#8C6239] shrink-0" />
-                <span>
-                  Estimated delivery: {settings.estimatedDeliveryDays} · {settings.returnWindowDays}-day return policy.
-                </span>
-              </p>
             </div>
           </div>
 
           {/* STICKY MOBILE BOTTOM CHECKOUT BAR (lg:hidden) */}
-          <div className="lg:hidden fixed bottom-16 left-0 right-0 z-30 bg-[#FAF8F5]/95 backdrop-blur-md border-t border-[#E5E0D8] px-4 py-3 flex items-center justify-between gap-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#E0E0E0] px-4 py-2.5 flex items-center justify-between gap-3 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#78716C]">
-                Payable on Delivery (COD)
+              <p className="text-[10px] uppercase tracking-wider text-[#878787]">
+                Payable on Delivery
               </p>
-              <p className="font-mono-tabular text-base font-bold text-[#141413]">
+              <p className="font-mono-tabular text-base font-extrabold text-[#212121]">
                 ₹{cartTotals.finalPayable.toLocaleString('en-IN')}
               </p>
             </div>
             <button
               type="submit"
               disabled={submitting}
-              className="min-h-[44px] px-6 bg-[#141413] hover:bg-[#8C6239] disabled:opacity-50 text-[#FAF8F5] text-xs font-semibold uppercase tracking-widest active:scale-[0.98] transition-all whitespace-nowrap"
+              className="min-h-[42px] px-6 bg-[#FB641B] text-white text-xs font-extrabold uppercase tracking-wider rounded-xs whitespace-nowrap"
             >
-              {submitting ? 'Placing Order...' : 'Place COD Order'}
+              {submitting ? 'Confirming...' : 'Confirm Order'}
             </button>
           </div>
         </form>

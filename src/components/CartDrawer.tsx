@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
+import { Minus, Plus, ShieldCheck, ShoppingCart, Trash2, X, Zap } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { getOptimizedImageUrl } from '../lib/cloudinary';
 
@@ -44,20 +44,20 @@ export const CartDrawer: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs">
-      <div className="relative w-full max-w-md bg-[#FAF8F5] h-full flex flex-col justify-between shadow-2xl border-l border-[#E5E0D8]">
-        {/* Drawer Header */}
-        <div className="p-6 border-b border-[#E5E0D8] flex items-center justify-between">
+      <div className="relative w-full max-w-md bg-[#F1F3F6] h-full flex flex-col justify-between shadow-2xl">
+        {/* Flipkart Blue Drawer Header */}
+        <div className="px-5 py-4 bg-[#2874F0] text-white flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2.5">
-            <ShoppingBag className="w-5 h-5 text-[#141413]" />
-            <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
-              Your Grooming Bag
+            <ShoppingCart className="w-5 h-5 text-[#FFE500]" />
+            <h2 className="text-base font-extrabold tracking-wide">
+              My Cart ({lineItems.reduce((s, i) => s + i.cartItem.quantity, 0)})
             </h2>
           </div>
           <button
             type="button"
             onClick={() => setCartDrawerOpen(false)}
-            aria-label="Close bag"
-            className="w-9 h-9 flex items-center justify-center text-[#57534E] hover:text-[#141413]"
+            aria-label="Close cart"
+            className="w-8 h-8 flex items-center justify-center text-white/90 hover:text-white"
           >
             <X className="w-5 h-5" />
           </button>
@@ -65,25 +65,25 @@ export const CartDrawer: React.FC = () => {
 
         {/* Free Shipping Progress Bar */}
         {lineItems.length > 0 && (
-          <div className="px-6 py-3 bg-[#F3EFEA] border-b border-[#E5E0D8] space-y-1.5">
-            <p className="text-xs text-[#141413] font-medium">
+          <div className="px-5 py-2.5 bg-white border-b border-[#E0E0E0] space-y-1.5">
+            <p className="text-xs text-[#212121] font-medium">
               {amountForFreeShipping > 0 ? (
                 <>
                   Add{' '}
-                  <span className="font-mono-tabular font-semibold text-[#8C6239]">
+                  <span className="font-mono-tabular font-bold text-[#2874F0]">
                     ₹{amountForFreeShipping.toLocaleString('en-IN')}
                   </span>{' '}
-                  more for complimentary shipping
+                  more for <strong>FREE Delivery</strong>
                 </>
               ) : (
-                <span className="text-[#141413] font-semibold">
-                  Complimentary shipping unlocked on your order
+                <span className="text-[#388E3C] font-bold">
+                  ✓ Yay! You get FREE Delivery on this order
                 </span>
               )}
             </p>
-            <div className="w-full h-1.5 bg-[#E5E0D8] overflow-hidden">
+            <div className="w-full h-1.5 bg-[#E0E0E0] rounded-full overflow-hidden">
               <div
-                className="h-full bg-[#8C6239] transition-all duration-300"
+                className="h-full bg-[#388E3C] transition-all duration-300"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -91,14 +91,15 @@ export const CartDrawer: React.FC = () => {
         )}
 
         {/* Line Items */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
           {lineItems.length === 0 ? (
-            <div className="py-16 text-center space-y-4">
-              <p className="font-serif-display text-2xl text-[#141413]">
-                Your grooming bag is currently empty
+            <div className="py-16 px-4 bg-white border border-[#E0E0E0] rounded-xs text-center space-y-4">
+              <ShoppingCart className="w-12 h-12 text-[#2874F0] mx-auto" />
+              <p className="text-lg font-extrabold text-[#212121]">
+                Your Cartlane cart is empty!
               </p>
-              <p className="text-sm text-[#57534E]">
-                Explore our signature Eau De Parfums, Activated Bamboo Charcoal cleansers, and cold-pressed beard oils.
+              <p className="text-xs text-[#878787]">
+                Add items to it now from our top grooming deals.
               </p>
               <button
                 type="button"
@@ -106,128 +107,142 @@ export const CartDrawer: React.FC = () => {
                   setCartDrawerOpen(false);
                   navigate('/products');
                 }}
-                className="inline-block px-6 py-3 bg-[#141413] text-[#FAF8F5] text-xs font-semibold uppercase tracking-widest hover:bg-[#8C6239] transition-colors"
+                className="inline-block px-6 py-2.5 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider rounded-xs shadow-xs"
               >
-                Explore Products
+                Shop Now
               </button>
             </div>
           ) : (
-            lineItems.map(({ cartItem, product, unitPrice, compareAtPrice, lineSubtotal, availableStock }) => (
-              <div
-                key={`${cartItem.productId}_${cartItem.variantLabel}`}
-                className="flex gap-4 pb-5 border-b border-[#ECE7DF]"
-              >
-                <Link
-                  to={`/products/${product.slug}`}
-                  onClick={() => setCartDrawerOpen(false)}
-                  className="w-20 h-20 bg-[#F3EFEA] shrink-0 overflow-hidden border border-[#E5E0D8]"
+            lineItems.map(
+              ({
+                cartItem,
+                product,
+                unitPrice,
+                compareAtPrice,
+                lineSubtotal,
+                availableStock,
+              }) => (
+                <div
+                  key={`${cartItem.productId}_${cartItem.variantLabel}`}
+                  className="flex gap-3 p-3 bg-white border border-[#E0E0E0] rounded-xs"
                 >
-                  <img
-                    src={getOptimizedImageUrl(product.mainImage, 200)}
-                    alt={product.name}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                </Link>
-                <div className="flex-1 min-w-0 space-y-1">
                   <Link
                     to={`/products/${product.slug}`}
                     onClick={() => setCartDrawerOpen(false)}
-                    className="text-sm font-semibold text-[#141413] hover:text-[#8C6239] line-clamp-1"
+                    className="w-18 h-18 bg-white p-1 shrink-0 overflow-hidden border border-[#F0F0F0]"
                   >
-                    {product.name}
+                    <img
+                      src={getOptimizedImageUrl(product.mainImage, 200)}
+                      alt={product.name}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-contain"
+                    />
                   </Link>
-                  <p className="text-xs text-[#78716C]">
-                    Size: {cartItem.variantLabel} · In Stock: {availableStock}
-                  </p>
-                  <div className="flex items-baseline gap-2 font-mono-tabular pt-0.5">
-                    <span className="text-sm font-semibold text-[#141413]">
-                      ₹{lineSubtotal.toLocaleString('en-IN')}
-                    </span>
-                    {compareAtPrice > unitPrice && (
-                      <span className="text-xs text-[#78716C] line-through">
-                        ₹{(compareAtPrice * cartItem.quantity).toLocaleString('en-IN')}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <Link
+                      to={`/products/${product.slug}`}
+                      onClick={() => setCartDrawerOpen(false)}
+                      className="text-xs font-bold text-[#212121] hover:text-[#2874F0] line-clamp-1"
+                    >
+                      {product.name}
+                    </Link>
+                    <p className="text-[11px] text-[#878787]">
+                      Pack: {cartItem.variantLabel} ·{' '}
+                      <span className="text-[#2874F0] font-semibold italic">Assured</span>
+                    </p>
+                    <div className="flex items-baseline gap-2 font-mono-tabular pt-0.5">
+                      <span className="text-sm font-extrabold text-[#212121]">
+                        ₹{lineSubtotal.toLocaleString('en-IN')}
                       </span>
-                    )}
-                  </div>
-
-                  {/* Stepper Controls */}
-                  <div className="flex items-center justify-between pt-2">
-                    <div className="inline-flex items-center border border-[#D6D3D1] bg-white">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateCartQuantity(
-                            cartItem.productId,
-                            cartItem.variantLabel,
-                            cartItem.quantity - 1
-                          )
-                        }
-                        aria-label="Decrease quantity"
-                        className="w-7 h-7 flex items-center justify-center text-[#141413] hover:bg-[#F3EFEA]"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="px-3 text-xs font-mono-tabular font-semibold">
-                        {cartItem.quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateCartQuantity(
-                            cartItem.productId,
-                            cartItem.variantLabel,
-                            cartItem.quantity + 1
-                          )
-                        }
-                        disabled={cartItem.quantity >= availableStock}
-                        aria-label="Increase quantity"
-                        className="w-7 h-7 flex items-center justify-center text-[#141413] hover:bg-[#F3EFEA] disabled:opacity-40"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
+                      {compareAtPrice > unitPrice && (
+                        <>
+                          <span className="text-[11px] text-[#878787] line-through">
+                            ₹{(compareAtPrice * cartItem.quantity).toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-[11px] font-bold text-[#388E3C]">
+                            {product.discountPercent}% off
+                          </span>
+                        </>
+                      )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => removeFromCart(cartItem.productId, cartItem.variantLabel)}
-                      aria-label="Remove item"
-                      className="text-xs text-[#78716C] hover:text-red-700 inline-flex items-center gap-1"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Remove</span>
-                    </button>
+                    {/* Stepper Controls */}
+                    <div className="flex items-center justify-between pt-2">
+                      <div className="inline-flex items-center border border-[#E0E0E0] bg-white rounded-xs">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateCartQuantity(
+                              cartItem.productId,
+                              cartItem.variantLabel,
+                              cartItem.quantity - 1
+                            )
+                          }
+                          aria-label="Decrease quantity"
+                          className="w-7 h-7 flex items-center justify-center text-[#212121] hover:bg-[#F1F3F6]"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="px-2.5 text-xs font-mono-tabular font-bold">
+                          {cartItem.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateCartQuantity(
+                              cartItem.productId,
+                              cartItem.variantLabel,
+                              cartItem.quantity + 1
+                            )
+                          }
+                          disabled={cartItem.quantity >= availableStock}
+                          aria-label="Increase quantity"
+                          className="w-7 h-7 flex items-center justify-center text-[#212121] hover:bg-[#F1F3F6] disabled:opacity-40"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart(cartItem.productId, cartItem.variantLabel)}
+                        aria-label="Remove item"
+                        className="text-[11px] font-bold uppercase text-[#212121] hover:text-red-600 inline-flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              )
+            )
           )}
         </div>
 
-        {/* Drawer Footer: Coupon & Summary */}
+        {/* Drawer Footer: Flipkart Price Details & Place Order */}
         {lineItems.length > 0 && (
-          <div className="p-6 bg-[#F3EFEA] border-t border-[#E5E0D8] space-y-4">
+          <div className="p-4 bg-white border-t border-[#E0E0E0] space-y-3 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
             <form onSubmit={handleApplyCoupon} className="flex gap-2">
               <input
                 type="text"
                 value={couponInput}
                 onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                placeholder="Privilege code (e.g. VANGUARD20)"
-                className="flex-1 bg-white border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular uppercase text-[#141413] focus:outline-none focus:border-[#141413]"
+                placeholder="Enter Coupon Code (e.g. ROYAL15)"
+                className="flex-1 bg-[#F8F9FA] border border-[#E0E0E0] px-3 py-2 text-xs font-mono-tabular uppercase text-[#212121] focus:outline-none focus:border-[#2874F0]"
               />
               <button
                 type="submit"
-                className="px-4 py-2 bg-[#141413] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#292524] whitespace-nowrap shrink-0"
+                className="px-4 py-2 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#1E5BC6] rounded-xs whitespace-nowrap shrink-0"
               >
                 Apply
               </button>
             </form>
-            {couponError && <p className="text-xs text-red-700">{couponError}</p>}
+            {couponError && <p className="text-xs text-red-600">{couponError}</p>}
             {appliedCoupon && (
-              <div className="flex items-center justify-between text-xs text-emerald-800 font-medium">
+              <div className="flex items-center justify-between text-xs text-[#388E3C] font-bold">
                 <span>
-                  Code {appliedCoupon.code} applied (Saved ₹
-                  {couponDiscount.toLocaleString('en-IN')})
+                  ✓ {appliedCoupon.code} applied (-₹{couponDiscount.toLocaleString('en-IN')})
                 </span>
                 <button
                   type="button"
@@ -235,60 +250,53 @@ export const CartDrawer: React.FC = () => {
                     setCouponInput('');
                     applyCouponCode('');
                   }}
-                  className="underline"
+                  className="underline text-[#878787]"
                 >
                   Remove
                 </button>
               </div>
             )}
 
-            <div className="space-y-1.5 text-xs border-t border-[#E5E0D8] pt-3">
-              <div className="flex justify-between text-[#57534E]">
-                <span>Bag Subtotal</span>
+            <div className="space-y-1 text-xs border-t border-[#F0F0F0] pt-2.5">
+              <div className="flex justify-between text-[#212121]">
+                <span>Cart Subtotal</span>
                 <span className="font-mono-tabular">₹{subtotal.toLocaleString('en-IN')}</span>
               </div>
-              {productSavings > 0 && (
-                <div className="flex justify-between text-[#8C6239]">
-                  <span>Catalog MRP Savings</span>
+              {productSavings + couponDiscount > 0 && (
+                <div className="flex justify-between text-[#388E3C] font-semibold">
+                  <span>Total Savings</span>
                   <span className="font-mono-tabular">
-                    -₹{productSavings.toLocaleString('en-IN')}
+                    -₹{(productSavings + couponDiscount).toLocaleString('en-IN')}
                   </span>
                 </div>
               )}
-              {couponDiscount > 0 && (
-                <div className="flex justify-between text-emerald-800">
-                  <span>Privilege Coupon Discount</span>
-                  <span className="font-mono-tabular">
-                    -₹{couponDiscount.toLocaleString('en-IN')}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between text-[#57534E]">
-                <span>Shipping</span>
-                <span className="font-mono-tabular">
-                  {shippingFee === 0 ? 'COMPLIMENTARY' : `₹${shippingFee}`}
+              <div className="flex justify-between text-[#212121]">
+                <span>Delivery Charges</span>
+                <span className="font-mono-tabular text-[#388E3C] font-bold">
+                  {shippingFee === 0 ? 'FREE' : `₹${shippingFee}`}
                 </span>
               </div>
-              <div className="flex justify-between text-base font-bold text-[#141413] pt-2 border-t border-[#E5E0D8]">
-                <span>Payable Amount</span>
+              <div className="flex justify-between text-base font-extrabold text-[#212121] pt-2 border-t border-dashed border-[#E0E0E0]">
+                <span>Total Amount</span>
                 <span className="font-mono-tabular">₹{finalPayable.toLocaleString('en-IN')}</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
               <Link
                 to="/cart"
                 onClick={() => setCartDrawerOpen(false)}
-                className="py-3 text-center border border-[#141413] text-[#141413] text-xs font-semibold uppercase tracking-wider hover:bg-[#E5E0D8] transition-colors whitespace-nowrap"
+                className="py-3 text-center border border-[#E0E0E0] text-[#212121] text-xs font-bold uppercase tracking-wider hover:bg-[#F1F3F6] rounded-xs whitespace-nowrap"
               >
-                View Full Bag
+                View Cart
               </Link>
               <Link
                 to="/checkout"
                 onClick={() => setCartDrawerOpen(false)}
-                className="py-3 text-center bg-[#141413] text-[#FAF8F5] text-xs font-semibold uppercase tracking-wider hover:bg-[#8C6239] transition-colors whitespace-nowrap"
+                className="py-3 text-center bg-[#FB641B] hover:bg-[#E85812] text-white text-xs font-extrabold uppercase tracking-wider rounded-xs shadow-xs inline-flex items-center justify-center gap-1 whitespace-nowrap"
               >
-                Proceed to Checkout
+                <Zap className="w-3.5 h-3.5 fill-white" />
+                <span>Place Order</span>
               </Link>
             </div>
           </div>
