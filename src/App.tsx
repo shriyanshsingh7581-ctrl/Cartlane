@@ -40,19 +40,24 @@ const ScrollToTop: React.FC = () => {
   return null;
 };
 
-const InitialAdminOpener: React.FC = () => {
-  const { pathname } = useLocation();
+const AdminUrlBridge: React.FC = () => {
+  const location = useLocation();
   const navigate = useNavigate();
-  const hasOpenedOnBoot = React.useRef(false);
 
   useEffect(() => {
-    if (!hasOpenedOnBoot.current) {
-      hasOpenedOnBoot.current = true;
-      if (pathname === '/') {
-        navigate('/admin', { replace: true });
-      }
+    const params = new URLSearchParams(location.search);
+    const hash = location.hash.toLowerCase();
+    const wantsAdminFromQuery =
+      params.has('admin') ||
+      params.get('mode') === 'admin' ||
+      params.get('panel') === 'admin';
+    const wantsAdminFromHash =
+      hash === '#admin' || hash.startsWith('#/admin');
+
+    if (wantsAdminFromQuery || wantsAdminFromHash) {
+      navigate('/admin', { replace: true });
     }
-  }, [pathname, navigate]);
+  }, [location.search, location.hash, navigate]);
 
   return null;
 };
@@ -72,7 +77,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <StoreProvider>
-        <InitialAdminOpener />
+        <AdminUrlBridge />
         <ScrollToTop />
         <div className="min-h-screen flex flex-col justify-between bg-[#F1F3F6] text-[#212121]">
           <Navbar />
