@@ -82,8 +82,9 @@ export interface Category {
   description: string;
   image: string;
   order: number;
-  createdAt: string;
-  updatedAt: string;
+  featured?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Banner {
@@ -97,8 +98,8 @@ export interface Banner {
   placement: 'hero' | 'promo' | 'collection';
   active: boolean;
   order: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Coupon {
@@ -113,8 +114,8 @@ export interface Coupon {
   usedCount: number;
   active: boolean;
   expiresAt: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type OrderStatus =
@@ -283,18 +284,26 @@ export interface CartDoc {
 }
 
 export interface SiteSettings {
-  id: string;
+  id?: string;
   brandName: string;
+  tagline?: string;
   announcementText: string;
+  announcementLink?: string;
   announcementEnabled: boolean;
   primaryColor?: string;
   accentColor?: string;
   freeShippingThreshold: number;
   flatShippingFee: number;
+  standardShippingFee?: number;
   codEnabled: boolean;
+  codFee?: number;
   estimatedDeliveryDays: string;
   returnWindowDays: number;
   supportEmail: string;
   supportPhone: string;
+  supportHours?: string;
+  socialInstagram?: string;
+  socialYoutube?: string;
+  socialTwitter?: string;
   updatedAt: string;
 }

@@ -25,9 +25,9 @@ export const WishlistPage: React.FC = () => {
   const handleMoveAllToBag = async () => {
     for (const prod of savedProducts) {
       if (prod.stock > 0) {
-        await addToCart(
+        addToCart(
           prod.id,
-          prod.variants[0]?.label || 'Standard',
+          prod.variants?.[0]?.label || 'Standard',
           1,
           false
         );

@@ -288,7 +288,7 @@ export const CartPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() =>
-                          addToCart(addon.id, addon.variants[0]?.label || 'Standard', 1, false)
+                          addToCart(addon.id, addon.variants?.[0]?.label || 'Standard', 1, false)
                         }
                         className="shrink-0 px-2.5 py-1.5 bg-[#FF9F00] hover:bg-[#FB641B] text-white text-[10px] font-bold uppercase rounded-xs"
                       >
