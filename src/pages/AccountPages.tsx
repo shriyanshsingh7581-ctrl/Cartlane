@@ -293,15 +293,6 @@ export const LoginPage: React.FC = () => {
               <Heart className="w-4 h-4 text-[#FFE500] shrink-0" />
               <span>Synced Cart &amp; Wishlist across devices</span>
             </div>
-            <div className="pt-2">
-              <Link
-                to="/admin"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#FFE500] text-[#212121] text-xs font-extrabold uppercase tracking-wider rounded-xs hover:bg-white transition-colors"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Open Admin Panel →</span>
-              </Link>
-            </div>
           </div>
         </div>
 
@@ -312,9 +303,6 @@ export const LoginPage: React.FC = () => {
           <div className="pt-4 border-t border-[#F0F0F0] flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[#2874F0]">
             <Link to="/track-order" className="hover:underline">
               Track an Existing Order →
-            </Link>
-            <Link to="/admin" className="text-[#388E3C] hover:underline">
-              Seller Hub / Admin Panel →
             </Link>
             <Link to="/products" className="hover:underline">
               Browse Store →
@@ -385,21 +373,13 @@ export const AccountDashboardPage: React.FC = () => {
     return (
       <main className="max-w-xl mx-auto px-3 sm:px-6 pt-6 pb-24 md:py-12">
         <div className="p-6 sm:p-8 bg-white border border-[#E0E0E0] rounded-xs space-y-5 shadow-xs">
-          <div className="flex items-center justify-between border-b border-[#F0F0F0] pb-4">
-            <div>
-              <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#2874F0]">
-                Cartlane Customer Account
-              </p>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-[#212121]">
-                Sign In with Email &amp; Password
-              </h1>
-            </div>
-            <Link
-              to="/admin"
-              className="px-3.5 py-2 bg-[#2874F0] text-white text-xs font-extrabold uppercase rounded-xs shrink-0"
-            >
-              Admin Panel
-            </Link>
+          <div className="border-b border-[#F0F0F0] pb-4">
+            <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#2874F0]">
+              Cartlane Customer Account
+            </p>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-[#212121]">
+              Sign In with Email &amp; Password
+            </h1>
           </div>
           <EmailAuthCard />
         </div>
@@ -508,17 +488,6 @@ export const AccountDashboardPage: React.FC = () => {
               <span className="flex items-center gap-2.5">
                 <Heart className="w-4 h-4 text-[#FF4343]" />
                 <span>My Wishlist ({wishlistIds.length})</span>
-              </span>
-              <span>›</span>
-            </Link>
-
-            <Link
-              to="/admin"
-              className="w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-[#388E3C] bg-[#E8F5E9]/40 hover:bg-[#E8F5E9]"
-            >
-              <span className="flex items-center gap-2.5">
-                <Shield className="w-4 h-4 text-[#388E3C]" />
-                <span>Open Admin Seller Panel</span>
               </span>
               <span>›</span>
             </Link>

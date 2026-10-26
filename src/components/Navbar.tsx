@@ -94,16 +94,16 @@ export const Navbar: React.FC = () => {
               Top Offers
             </Link>
             <Link
+              to="/track-order"
+              className="hover:text-[#FFE500] hover:underline underline-offset-8 transition-colors whitespace-nowrap shrink-0"
+            >
+              Track Order
+            </Link>
+            <Link
               to={isLoggedIn ? '/account' : '/login'}
               className="hover:text-[#FFE500] hover:underline underline-offset-8 transition-colors whitespace-nowrap shrink-0"
             >
               {isLoggedIn ? 'My Account' : 'Login / Sign Up'}
-            </Link>
-            <Link
-              to="/admin"
-              className="text-[#FFE500] hover:underline underline-offset-8 transition-colors whitespace-nowrap shrink-0"
-            >
-              Admin Panel
             </Link>
           </nav>
 
@@ -120,7 +120,7 @@ export const Navbar: React.FC = () => {
           </div>
         </header>
 
-        {/* Sub-Header Instant Search & Quick Mobile/Desktop Actions */}
+        {/* Sub-Header Instant Search & Customer Quick Links */}
         <div className="bg-[#1E5BC6] border-t border-white/15">
           <div className="max-w-[1440px] mx-auto px-3 sm:px-6 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             {/* Flipkart White Search Input */}
@@ -142,14 +142,8 @@ export const Navbar: React.FC = () => {
                 </button>
               </div>
               <Link
-                to="/admin"
-                className="sm:hidden h-9 px-2.5 bg-[#FFE500] text-[#212121] text-[11px] font-extrabold uppercase tracking-wider rounded-xs inline-flex items-center justify-center whitespace-nowrap shrink-0"
-              >
-                Admin
-              </Link>
-              <Link
                 to={isLoggedIn ? '/account' : '/login'}
-                className="sm:hidden h-9 px-2.5 bg-white/15 border border-white/30 text-white text-[11px] font-extrabold uppercase tracking-wider rounded-xs inline-flex items-center justify-center whitespace-nowrap shrink-0"
+                className="sm:hidden h-9 px-3 bg-white/15 border border-white/30 text-white text-[11px] font-extrabold uppercase tracking-wider rounded-xs inline-flex items-center justify-center whitespace-nowrap shrink-0"
               >
                 {isLoggedIn ? 'Account' : 'Login'}
               </Link>
@@ -157,12 +151,6 @@ export const Navbar: React.FC = () => {
 
             {/* Delivery Location & Offer Callout */}
             <div className="hidden sm:flex items-center gap-5 text-xs text-white/95 shrink-0">
-              <Link
-                to="/admin"
-                className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#FFE500] text-[#212121] rounded-xs font-extrabold hover:bg-white transition-colors whitespace-nowrap"
-              >
-                <span>Seller Hub / Admin Panel</span>
-              </Link>
               <Link
                 to={isLoggedIn ? '/account' : '/login'}
                 className="inline-flex items-center gap-1 hover:text-[#FFE500] font-bold transition-colors whitespace-nowrap"
@@ -219,16 +207,16 @@ export const Navbar: React.FC = () => {
           </button>
 
           <Link
-            to="/admin"
+            to="/offers"
             onClick={() => setMobileSheetOpen(false)}
             className={`min-h-[48px] flex flex-col items-center justify-center gap-0.5 transition-colors ${
-              location.pathname.startsWith('/admin')
+              location.pathname === '/offers'
                 ? 'text-[#2874F0] font-bold'
-                : 'text-[#2874F0] font-bold'
+                : 'text-[#878787]'
             }`}
           >
             <Tag className="w-5 h-5" />
-            <span className="text-[10px] tracking-tight whitespace-nowrap">Admin Panel</span>
+            <span className="text-[10px] tracking-tight whitespace-nowrap">Top Deals</span>
           </Link>
 
           <Link
@@ -317,7 +305,7 @@ export const Navbar: React.FC = () => {
                   onClick={() => setMobileSheetOpen(false)}
                   className="min-h-[48px] flex items-center justify-between text-xs font-bold text-[#212121]"
                 >
-                  <span>Browse All 16 Grooming Products</span>
+                  <span>Browse All Grooming Products</span>
                   <ArrowRight className="w-4 h-4 text-[#2874F0]" />
                 </Link>
 
@@ -343,15 +331,6 @@ export const Navbar: React.FC = () => {
                     <span>Track My Order</span>
                   </span>
                   <ArrowRight className="w-4 h-4 text-[#878787]" />
-                </Link>
-
-                <Link
-                  to="/admin"
-                  onClick={() => setMobileSheetOpen(false)}
-                  className="min-h-[48px] flex items-center justify-between text-xs font-bold text-[#2874F0]"
-                >
-                  <span>Cartlane Seller Hub (Admin Panel)</span>
-                  <ArrowRight className="w-4 h-4 text-[#2874F0]" />
                 </Link>
               </div>
             </div>

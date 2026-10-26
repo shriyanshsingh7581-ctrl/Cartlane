@@ -176,11 +176,6 @@ export const Footer: React.FC = () => {
                 24x7 Customer Care
               </Link>
             </li>
-            <li>
-              <Link to="/admin" className="hover:underline text-[#FFE500]">
-                Seller / Admin Console
-              </Link>
-            </li>
           </ul>
         </div>
 
