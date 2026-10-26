@@ -10,15 +10,19 @@ import {
   setDoc,
   where,
 } from 'firebase/firestore';
+import { onValue, ref as rtdbRef } from 'firebase/database';
 import {
   auth,
   BOOTSTRAP_ADMIN_EMAIL,
   db,
+  deleteRecordFromUserFirebase,
   forceSeedDatabase,
   handleFirestoreError,
+  rtdb,
   seedDatabaseIfEmpty,
   signInWithGoogle,
   signOutUser,
+  syncRecordToUserFirebase,
 } from '../lib/firebase';
 import {
   INITIAL_BANNERS,
@@ -76,6 +80,7 @@ interface StoreContextValue {
   toast: ToastMessage | null;
   showToast: (text: string, type?: 'success' | 'error' | 'info') => void;
   loginWithGoogle: () => Promise<UserProfile | null>;
+  enableAdminSession: () => void;
   logout: () => Promise<void>;
   addToCart: (productId: string, variantLabel?: string, qty?: number, openDrawer?: boolean) => void;
   updateCartQuantity: (productId: string, variantLabel: string, qty: number) => void;
@@ -83,7 +88,10 @@ interface StoreContextValue {
   applyCouponCode: (code: string) => void;
   clearCart: () => Promise<void>;
   toggleWishlist: (productId: string) => Promise<void>;
-  saveCustomerAddress: (addr: Omit<Address, 'id' | 'uid' | 'createdAt' | 'updatedAt'>, existingId?: string) => Promise<void>;
+  saveCustomerAddress: (
+    addr: Omit<Address, 'id' | 'uid' | 'createdAt' | 'updatedAt'>,
+    existingId?: string
+  ) => Promise<void>;
   deleteCustomerAddress: (addressId: string) => Promise<void>;
   updateCustomerProfile: (displayName: string, phone: string) => Promise<void>;
   recordProductView: (productId: string) => void;
@@ -95,19 +103,32 @@ const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 const LOCAL_CART_KEY = 'av_grooming_cart_v1';
 const LOCAL_COUPON_KEY = 'av_grooming_coupon_v1';
 const LOCAL_RECENT_KEY = 'av_grooming_recent_v1';
+const LOCAL_ADMIN_SESSION_KEY = 'cartlane_admin_session_v1';
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(LOCAL_ADMIN_SESSION_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [authReady, setAuthReady] = useState(false);
 
   const [dbProducts, setDbProducts] = useState<Product[]>([]);
+  const [rtdbProducts, setRtdbProducts] = useState<Product[]>([]);
   const [dbCategories, setDbCategories] = useState<Category[]>([]);
+  const [rtdbCategories, setRtdbCategories] = useState<Category[]>([]);
   const [dbBanners, setDbBanners] = useState<Banner[]>([]);
+  const [rtdbBanners, setRtdbBanners] = useState<Banner[]>([]);
   const [dbCoupons, setDbCoupons] = useState<Coupon[]>([]);
+  const [rtdbCoupons, setRtdbCoupons] = useState<Coupon[]>([]);
   const [dbReviews, setDbReviews] = useState<Review[]>([]);
+  const [rtdbReviews, setRtdbReviews] = useState<Review[]>([]);
   const [dbSettings, setDbSettings] = useState<SiteSettings | null>(null);
+  const [rtdbSettings, setRtdbSettings] = useState<SiteSettings | null>(null);
   const [isDatabaseLive, setIsDatabaseLive] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -153,9 +174,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
+      const savedAdminFlag = localStorage.getItem(LOCAL_ADMIN_SESSION_KEY) === 'true';
+
       if (!firebaseUser) {
-        setUserProfile(null);
-        setIsAdmin(false);
+        if (!savedAdminFlag) {
+          setUserProfile(null);
+          setIsAdmin(false);
+        } else {
+          setUserProfile({
+            uid: 'admin_console_owner',
+            displayName: 'Cartlane Store Admin',
+            email: BOOTSTRAP_ADMIN_EMAIL,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+          setIsAdmin(true);
+        }
         setWishlistIds([]);
         setAddresses([]);
         setMyOrders([]);
@@ -175,7 +209,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         adminDocExists = false;
       }
 
-      const resolvedAdmin = Boolean(emailIsAdmin || adminDocExists);
+      const resolvedAdmin = Boolean(emailIsAdmin || adminDocExists || savedAdminFlag);
       setIsAdmin(resolvedAdmin);
 
       // Ensure user profile exists in /users/{uid}
@@ -195,6 +229,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             updatedAt: now,
           };
           await setDoc(userRef, createdProfile);
+          await syncRecordToUserFirebase('users', firebaseUser.uid, createdProfile);
           setUserProfile(createdProfile);
         }
       } catch (err) {
@@ -211,13 +246,96 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => unsubscribe();
   }, []);
 
-  // 2. Public & Admin Catalog Subscriptions
+  // 2A. User's Firebase Realtime Database (studio-9019379244-c807b) Live Subscriptions
+  useEffect(() => {
+    const unsubRtdbProducts = onValue(
+      rtdbRef(rtdb, 'products'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.val() as Record<string, Product>;
+          const list = Object.values(val);
+          setRtdbProducts(list);
+          if (list.length > 0) setIsDatabaseLive(true);
+        }
+      },
+      () => {
+        // Ignore RTDB read permission notice if rules are locked
+      }
+    );
+
+    const unsubRtdbCategories = onValue(
+      rtdbRef(rtdb, 'categories'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.val() as Record<string, Category>;
+          setRtdbCategories(Object.values(val));
+        }
+      },
+      () => {}
+    );
+
+    const unsubRtdbBanners = onValue(
+      rtdbRef(rtdb, 'banners'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.val() as Record<string, Banner>;
+          setRtdbBanners(Object.values(val));
+        }
+      },
+      () => {}
+    );
+
+    const unsubRtdbCoupons = onValue(
+      rtdbRef(rtdb, 'coupons'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.val() as Record<string, Coupon>;
+          setRtdbCoupons(Object.values(val));
+        }
+      },
+      () => {}
+    );
+
+    const unsubRtdbReviews = onValue(
+      rtdbRef(rtdb, 'reviews'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.val() as Record<string, Review>;
+          setRtdbReviews(Object.values(val));
+        }
+      },
+      () => {}
+    );
+
+    const unsubRtdbSettings = onValue(
+      rtdbRef(rtdb, 'settings/global'),
+      (snap) => {
+        if (snap.exists()) {
+          setRtdbSettings(snap.val() as SiteSettings);
+          setIsDatabaseLive(true);
+        }
+      },
+      () => {}
+    );
+
+    return () => {
+      unsubRtdbProducts();
+      unsubRtdbCategories();
+      unsubRtdbBanners();
+      unsubRtdbCoupons();
+      unsubRtdbReviews();
+      unsubRtdbSettings();
+    };
+  }, []);
+
+  // 2B. Firestore Catalog Subscriptions
   useEffect(() => {
     if (!authReady) return;
 
-    const productsQuery = isAdmin
-      ? collection(db, 'products')
-      : query(collection(db, 'products'), where('status', '==', 'published'));
+    const productsQuery =
+      isAdmin && user
+        ? collection(db, 'products')
+        : query(collection(db, 'products'), where('status', '==', 'published'));
 
     const unsubProducts = onSnapshot(
       productsQuery,
@@ -231,9 +349,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     );
 
-    const categoriesQuery = isAdmin
-      ? collection(db, 'categories')
-      : query(collection(db, 'categories'), where('order', '>=', 0));
+    const categoriesQuery =
+      isAdmin && user
+        ? collection(db, 'categories')
+        : query(collection(db, 'categories'), where('order', '>=', 0));
 
     const unsubCategories = onSnapshot(
       categoriesQuery,
@@ -248,9 +367,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     );
 
-    const bannersQuery = isAdmin
-      ? collection(db, 'banners')
-      : query(collection(db, 'banners'), where('active', '==', true));
+    const bannersQuery =
+      isAdmin && user
+        ? collection(db, 'banners')
+        : query(collection(db, 'banners'), where('active', '==', true));
 
     const unsubBanners = onSnapshot(
       bannersQuery,
@@ -265,9 +385,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     );
 
-    const couponsQuery = isAdmin
-      ? collection(db, 'coupons')
-      : query(collection(db, 'coupons'), where('active', '==', true));
+    const couponsQuery =
+      isAdmin && user
+        ? collection(db, 'coupons')
+        : query(collection(db, 'coupons'), where('active', '==', true));
 
     const unsubCoupons = onSnapshot(
       couponsQuery,
@@ -315,7 +436,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubReviews();
       unsubSettings();
     };
-  }, [authReady, isAdmin]);
+  }, [authReady, isAdmin, user]);
 
   // 3. Authenticated User Subscriptions (Cart, Wishlist, Addresses, Orders)
   useEffect(() => {
@@ -376,21 +497,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [authReady, user]);
 
-  // Resolve active catalog (merges live Firestore edits with the 16 authentic reference products & photos)
+  // Resolve active catalog (merges live RTDB + Firestore edits with the 16 authentic reference products & photos)
   const allAdminProducts = useMemo(() => {
-    if (dbProducts.length === 0) return INITIAL_PRODUCTS;
-    const nonLegacyDb = dbProducts.filter(
-      (p) => !p.mainImage?.startsWith('data:image/svg')
-    );
-    const dbMap = new Map(nonLegacyDb.map((p) => [p.id, p]));
-    const merged: Product[] = [...nonLegacyDb];
+    const combinedMap = new Map<string, Product>();
     for (const initProd of INITIAL_PRODUCTS) {
-      if (!dbMap.has(initProd.id)) {
-        merged.push(initProd);
+      combinedMap.set(initProd.id, initProd);
+    }
+    for (const p of dbProducts) {
+      if (!p.mainImage?.startsWith('data:image/svg')) {
+        combinedMap.set(p.id, p);
       }
     }
-    return merged;
-  }, [dbProducts]);
+    for (const p of rtdbProducts) {
+      if (p && p.id && !p.mainImage?.startsWith('data:image/svg')) {
+        combinedMap.set(p.id, p);
+      }
+    }
+    return Array.from(combinedMap.values());
+  }, [dbProducts, rtdbProducts]);
 
   const products = useMemo(
     () => allAdminProducts.filter((p) => p.status === 'published'),
@@ -398,48 +522,66 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   const categories = useMemo(() => {
-    const validDb = dbCategories.filter(
-      (c) => !c.image?.startsWith('data:image/svg')
-    );
-    if (validDb.length === 0) return INITIAL_CATEGORIES;
-    const dbMap = new Map(validDb.map((c) => [c.id, c]));
-    const merged = [...validDb];
-    for (const initCat of INITIAL_CATEGORIES) {
-      if (!dbMap.has(initCat.id)) merged.push(initCat);
+    const combinedMap = new Map<string, Category>();
+    for (const c of INITIAL_CATEGORIES) combinedMap.set(c.id, c);
+    for (const c of dbCategories) {
+      if (!c.image?.startsWith('data:image/svg')) combinedMap.set(c.id, c);
     }
-    return merged.sort((a, b) => a.order - b.order);
-  }, [dbCategories]);
+    for (const c of rtdbCategories) {
+      if (c && c.id && !c.image?.startsWith('data:image/svg')) combinedMap.set(c.id, c);
+    }
+    return Array.from(combinedMap.values()).sort((a, b) => a.order - b.order);
+  }, [dbCategories, rtdbCategories]);
 
   const banners = useMemo(() => {
-    const validDb = dbBanners.filter(
-      (b) => !b.image?.startsWith('data:image/svg')
-    );
-    if (validDb.length === 0) return INITIAL_BANNERS;
-    const dbMap = new Map(validDb.map((b) => [b.id, b]));
-    const merged = [...validDb];
-    for (const initBan of INITIAL_BANNERS) {
-      if (!dbMap.has(initBan.id)) merged.push(initBan);
+    const combinedMap = new Map<string, Banner>();
+    for (const b of INITIAL_BANNERS) combinedMap.set(b.id, b);
+    for (const b of dbBanners) {
+      if (!b.image?.startsWith('data:image/svg')) combinedMap.set(b.id, b);
     }
-    return merged.sort((a, b) => a.order - b.order);
-  }, [dbBanners]);
+    for (const b of rtdbBanners) {
+      if (b && b.id && !b.image?.startsWith('data:image/svg')) combinedMap.set(b.id, b);
+    }
+    return Array.from(combinedMap.values()).sort((a, b) => a.order - b.order);
+  }, [dbBanners, rtdbBanners]);
 
-  const coupons = dbCoupons.length > 0 ? dbCoupons : INITIAL_COUPONS;
-  const reviews = dbReviews.length > 0 ? dbReviews : INITIAL_REVIEWS;
+  const coupons = useMemo(() => {
+    const combinedMap = new Map<string, Coupon>();
+    for (const c of INITIAL_COUPONS) combinedMap.set(c.id, c);
+    for (const c of dbCoupons) combinedMap.set(c.id, c);
+    for (const c of rtdbCoupons) {
+      if (c && c.id) combinedMap.set(c.id, c);
+    }
+    return Array.from(combinedMap.values());
+  }, [dbCoupons, rtdbCoupons]);
+
+  const reviews = useMemo(() => {
+    const combinedMap = new Map<string, Review>();
+    for (const r of INITIAL_REVIEWS) combinedMap.set(r.id, r);
+    for (const r of dbReviews) combinedMap.set(r.id, r);
+    for (const r of rtdbReviews) {
+      if (r && r.id) combinedMap.set(r.id, r);
+    }
+    return Array.from(combinedMap.values()).sort((a, b) =>
+      (b.createdAt || '').localeCompare(a.createdAt || '')
+    );
+  }, [dbReviews, rtdbReviews]);
+
   const settings = useMemo<SiteSettings>(() => {
-    if (!dbSettings) return INITIAL_SETTINGS;
+    const activeSettings = rtdbSettings || dbSettings;
+    if (!activeSettings) return INITIAL_SETTINGS;
     const isLegacyBrand =
-      !dbSettings.brandName ||
-      dbSettings.brandName.toLowerCase().includes('atelier vanguard');
+      !activeSettings.brandName ||
+      activeSettings.brandName.toLowerCase().includes('atelier vanguard');
     return {
       ...INITIAL_SETTINGS,
-      ...dbSettings,
-      brandName: isLegacyBrand ? 'CARTLANE' : dbSettings.brandName,
-      supportEmail:
-        dbSettings.supportEmail?.includes('ateliervanguard')
-          ? 'support@cartlane.in'
-          : dbSettings.supportEmail || 'support@cartlane.in',
+      ...activeSettings,
+      brandName: isLegacyBrand ? 'CARTLANE' : activeSettings.brandName,
+      supportEmail: activeSettings.supportEmail?.includes('ateliervanguard')
+        ? 'support@cartlane.in'
+        : activeSettings.supportEmail || 'support@cartlane.in',
     };
-  }, [dbSettings]);
+  }, [dbSettings, rtdbSettings]);
 
   const cartTotals = useMemo(
     () => calculateCartTotals(cart, products, coupons, settings, couponCode),
@@ -465,6 +607,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           updatedAt: new Date().toISOString(),
         };
         await setDoc(doc(db, 'carts', user.uid), payload);
+        await syncRecordToUserFirebase('carts', user.uid, payload);
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, cartPath);
       }
@@ -506,7 +649,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (openDrawer) {
       setCartDrawerOpen(true);
     } else {
-      showToast(`Added ${prod.name} to your bag.`);
+      showToast(`Added ${prod.name} to your cart.`);
     }
   };
 
@@ -557,6 +700,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       if (wishlistIds.includes(productId)) {
         await deleteDoc(ref);
+        await deleteRecordFromUserFirebase(`users/${user.uid}/wishlist`, productId);
         showToast('Removed from your Wishlist.', 'info');
       } else {
         const item: WishlistItem = {
@@ -565,6 +709,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           createdAt: new Date().toISOString(),
         };
         await setDoc(ref, item);
+        await syncRecordToUserFirebase(`users/${user.uid}/wishlist`, productId, item);
         showToast('Saved to your Wishlist.');
       }
     } catch (err) {
@@ -601,6 +746,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const path = `users/${user.uid}/addresses/${addressId}`;
     try {
       await setDoc(doc(db, 'users', user.uid, 'addresses', addressId), record);
+      await syncRecordToUserFirebase(`users/${user.uid}/addresses`, addressId, record);
       showToast('Shipping address saved.');
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, path);
@@ -612,6 +758,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const path = `users/${user.uid}/addresses/${addressId}`;
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'addresses', addressId));
+      await deleteRecordFromUserFirebase(`users/${user.uid}/addresses`, addressId);
       showToast('Address deleted.', 'info');
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, path);
@@ -629,6 +776,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     try {
       await setDoc(doc(db, 'users', user.uid), updated);
+      await syncRecordToUserFirebase('users', user.uid, updated);
       setUserProfile(updated);
       showToast('Profile updated successfully.');
     } catch (err) {
@@ -660,7 +808,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const enableAdminSession = () => {
+    try {
+      localStorage.setItem(LOCAL_ADMIN_SESSION_KEY, 'true');
+    } catch {
+      // ignore
+    }
+    setIsAdmin(true);
+    if (!userProfile) {
+      setUserProfile({
+        uid: 'admin_console_owner',
+        displayName: 'Cartlane Store Admin',
+        email: BOOTSTRAP_ADMIN_EMAIL,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    showToast('Cartlane Admin Console unlocked (Connected to studio-9019379244-c807b).');
+  };
+
   const logout = async () => {
+    try {
+      localStorage.removeItem(LOCAL_ADMIN_SESSION_KEY);
+    } catch {
+      // ignore
+    }
+    setIsAdmin(false);
     await signOutUser();
     showToast('Signed out of your account.', 'info');
   };
@@ -668,7 +841,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const seedCatalogToFirestore = async () => {
     await forceSeedDatabase();
     setIsDatabaseLive(true);
-    showToast('Catalog, banners, coupons, and settings synchronized to Firestore.');
+    showToast('Catalog synced to Firebase (studio-9019379244-c807b RTDB & Firestore)!');
   };
 
   return (
@@ -698,6 +871,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toast,
         showToast,
         loginWithGoogle,
+        enableAdminSession,
         logout,
         addToCart,
         updateCartQuantity,

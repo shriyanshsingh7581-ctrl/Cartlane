@@ -99,10 +99,16 @@ export const Navbar: React.FC = () => {
               Track Order
             </Link>
             <Link
-              to={isAdmin ? '/admin' : user ? '/account' : '/login'}
+              to={user ? '/account' : '/login'}
               className="hover:text-[#FFE500] hover:underline underline-offset-8 transition-colors whitespace-nowrap shrink-0"
             >
-              {isAdmin ? 'Admin Panel' : user ? 'My Account' : 'Login'}
+              {user ? 'My Account' : 'Login'}
+            </Link>
+            <Link
+              to="/admin"
+              className="text-[#FFE500] hover:underline underline-offset-8 transition-colors whitespace-nowrap shrink-0"
+            >
+              Admin Panel
             </Link>
           </nav>
 
@@ -144,6 +150,12 @@ export const Navbar: React.FC = () => {
 
             {/* Delivery Location & Offer Callout */}
             <div className="hidden sm:flex items-center gap-5 text-xs text-white/95 shrink-0">
+              <Link
+                to="/admin"
+                className="inline-flex items-center gap-1 text-[#FFE500] font-bold hover:underline whitespace-nowrap"
+              >
+                <span>Seller Hub / Admin</span>
+              </Link>
               <Link
                 to="/wishlist"
                 className="inline-flex items-center gap-1.5 hover:text-[#FFE500] transition-colors whitespace-nowrap"
@@ -317,6 +329,15 @@ export const Navbar: React.FC = () => {
                     <span>Track My Order</span>
                   </span>
                   <ArrowRight className="w-4 h-4 text-[#878787]" />
+                </Link>
+
+                <Link
+                  to="/admin"
+                  onClick={() => setMobileSheetOpen(false)}
+                  className="min-h-[48px] flex items-center justify-between text-xs font-bold text-[#2874F0]"
+                >
+                  <span>Cartlane Seller Hub (Admin Panel)</span>
+                  <ArrowRight className="w-4 h-4 text-[#2874F0]" />
                 </Link>
               </div>
             </div>

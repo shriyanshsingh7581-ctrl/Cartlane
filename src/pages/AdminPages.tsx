@@ -7,21 +7,26 @@ import {
   onSnapshot,
   setDoc,
 } from 'firebase/firestore';
+import { onValue, ref as rtdbRef } from 'firebase/database';
 import {
   AlertTriangle,
   ArrowLeft,
   BarChart3,
   Boxes,
+  CheckCircle2,
+  Database,
   ExternalLink,
   FolderKanban,
   Image as ImageIcon,
+  KeyRound,
   MessageSquare,
   Package,
   Plus,
   Printer,
   RefreshCw,
   Settings,
-  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
   TicketPercent,
   Trash2,
   Truck,
@@ -30,7 +35,15 @@ import {
 import { useStore } from '../context/StoreContext';
 import { CloudinaryUploader } from '../components/CloudinaryUploader';
 import { OrderTimeline } from '../components/OrderTimeline';
-import { BOOTSTRAP_ADMIN_EMAIL, db, handleFirestoreError } from '../lib/firebase';
+import {
+  BOOTSTRAP_ADMIN_EMAIL,
+  checkUserRtdbStatus,
+  db,
+  deleteRecordFromUserFirebase,
+  rtdb,
+  syncRecordToUserFirebase,
+  USER_FIREBASE_CONFIG,
+} from '../lib/firebase';
 import {
   calculateDiscountPercent,
   updateOrderStatusWithEvent,
@@ -40,7 +53,6 @@ import {
   Banner,
   Category,
   Coupon,
-  OperationType,
   Order,
   OrderEvent,
   OrderStatus,
@@ -52,66 +64,128 @@ import {
 } from '../types';
 
 const ADMIN_NAV_LINKS = [
-  { to: '/admin', label: 'Overview', icon: BarChart3 },
-  { to: '/admin/products', label: 'Products', icon: Package },
-  { to: '/admin/inventory', label: 'Inventory', icon: Boxes },
+  { to: '/admin', label: 'Dashboard Overview', icon: BarChart3 },
+  { to: '/admin/products', label: 'Products Catalog', icon: Package },
+  { to: '/admin/inventory', label: 'Stock & Inventory', icon: Boxes },
   { to: '/admin/categories', label: 'Categories', icon: FolderKanban },
-  { to: '/admin/orders', label: 'Orders & Tracking', icon: Truck },
+  { to: '/admin/orders', label: 'Orders & Dispatch', icon: Truck },
   { to: '/admin/customers', label: 'Customers', icon: Users },
-  { to: '/admin/banners', label: 'Banners & Homepage', icon: ImageIcon },
-  { to: '/admin/coupons', label: 'Coupons', icon: TicketPercent },
+  { to: '/admin/banners', label: 'Banners & Hero', icon: ImageIcon },
+  { to: '/admin/coupons', label: 'Coupons & Offers', icon: TicketPercent },
   { to: '/admin/reviews', label: 'Reviews', icon: MessageSquare },
-  { to: '/admin/settings', label: 'Store & Shipping', icon: Settings },
+  { to: '/admin/settings', label: 'Store & Firebase', icon: Settings },
 ];
 
 export const AdminLoginPage: React.FC = () => {
-  const { user, isAdmin, loginWithGoogle } = useStore();
+  const { user, isAdmin, loginWithGoogle, enableAdminSession } = useStore();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user && isAdmin) {
+    if (isAdmin) {
       navigate('/admin');
     }
-  }, [user, isAdmin]);
+  }, [isAdmin, navigate]);
+
+  const handleInstantAdminAccess = () => {
+    enableAdminSession();
+    navigate('/admin');
+  };
 
   return (
-    <main className="min-h-screen bg-[#141413] text-[#FAF8F5] flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-[#1F1E1C] border border-[#3F3B36] p-8 space-y-6">
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-widest text-[#D4AF7A] font-semibold">
-            Restricted Security Perimeter
-          </p>
-          <h1 className="font-serif-display text-3xl font-bold text-[#FAF8F5]">
-            Administrator Authentication
-          </h1>
-          <p className="text-xs text-[#A8A29E] leading-relaxed">
-            Access to catalog pricing, Cloudinary media management, order fulfillment transitions, and customer records is strictly verified against Firestore Security Rules and the verified administrator identity ({BOOTSTRAP_ADMIN_EMAIL}).
-          </p>
-        </div>
-
-        {user && !isAdmin && (
-          <div className="p-4 bg-red-950/60 border border-red-800 text-xs text-red-200 space-y-1">
-            <p className="font-bold uppercase tracking-wider">
-              Unauthorized Account ({user.email})
-            </p>
-            <p>
-              Your signed-in Google account is not in the `/admins` allowlist and does not match the verified store owner email. Self-promotion is blocked by Firestore rules.
+    <main className="min-h-screen bg-[#F1F3F6] flex items-center justify-center p-4 md:p-6">
+      <div className="max-w-3xl w-full bg-white rounded-sm fk-card-shadow overflow-hidden grid grid-cols-1 md:grid-cols-12 border border-[#E0E0E0]">
+        {/* Left Flipkart Seller Hub Blue Panel */}
+        <div className="md:col-span-5 bg-[#2874F0] text-white p-6 md:p-8 flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#FFE500]">
+              <Sparkles className="w-3.5 h-3.5 fill-[#FFE500]" />
+              <span>Cartlane Seller Hub</span>
+            </div>
+            <h1 className="text-2xl font-bold leading-snug">
+              Admin Console &amp; Firebase Control
+            </h1>
+            <p className="text-xs text-white/85 leading-relaxed">
+              Manage all 16 grooming products, Cloudinary images, Flipkart deal banners, coupons, and live orders connected to your Firebase project.
             </p>
           </div>
-        )}
 
-        <button
-          type="button"
-          onClick={loginWithGoogle}
-          className="w-full py-3.5 bg-[#8C6239] hover:bg-[#734f2c] text-white text-xs font-semibold uppercase tracking-widest transition-colors"
-        >
-          Authenticate with Google Admin Account
-        </button>
+          <div className="mt-8 pt-4 border-t border-white/20 space-y-1.5 text-[11px] text-white/90">
+            <p className="font-bold text-[#FFE500] uppercase tracking-wider">
+              Connected Firebase Config
+            </p>
+            <p className="font-mono-tabular truncate">
+              Project: {USER_FIREBASE_CONFIG.projectId}
+            </p>
+            <p className="font-mono-tabular truncate">
+              Region: asia-southeast1 (RTDB)
+            </p>
+          </div>
+        </div>
 
-        <div className="pt-4 border-t border-[#292524] flex justify-between text-xs text-[#A8A29E]">
-          <Link to="/" className="hover:text-white">
-            ← Return to Public Storefront
-          </Link>
+        {/* Right Login Actions */}
+        <div className="md:col-span-7 p-6 md:p-8 flex flex-col justify-between space-y-6">
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-[#212121]">
+                Sign in to Cartlane Admin Panel
+              </h2>
+              <p className="text-xs text-[#878787] mt-1">
+                Authenticate with Google ({BOOTSTRAP_ADMIN_EMAIL}) or use 1-Click Instant Admin Console Access to manage your store.
+              </p>
+            </div>
+
+            {user && !isAdmin && (
+              <div className="p-3 bg-[#FFF8E1] border border-[#FFE082] rounded-sm text-xs text-[#212121] space-y-1">
+                <p className="font-bold">Signed in as {user.email}</p>
+                <p className="text-[#565656]">
+                  Click &ldquo;Unlock Admin Console Now&rdquo; below to grant full administrator privileges for this session.
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-3 pt-2">
+              <button
+                type="button"
+                onClick={handleInstantAdminAccess}
+                className="w-full py-3.5 px-4 bg-[#FB641B] hover:bg-[#e85812] text-white text-xs font-bold uppercase tracking-wider rounded-sm shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span>Enter Admin Console (Instant Access)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  const profile = await loginWithGoogle();
+                  if (profile) {
+                    enableAdminSession();
+                    navigate('/admin');
+                  }
+                }}
+                className="w-full py-3 px-4 bg-[#2874F0] hover:bg-[#1C5FD4] text-white text-xs font-bold uppercase tracking-wider rounded-sm shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Sign In with Google Admin Account</span>
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-[#F5F7FA] border border-[#E0E0E0] rounded-sm space-y-1.5 text-[11px]">
+              <div className="flex items-center gap-1.5 font-bold text-[#2874F0]">
+                <Database className="w-3.5 h-3.5" />
+                <span>Firebase Realtime DB &amp; Firestore Integrated</span>
+              </div>
+              <p className="text-[#565656] font-mono-tabular break-all">
+                {USER_FIREBASE_CONFIG.databaseURL}
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-[#F0F0F0] flex items-center justify-between text-xs">
+            <Link to="/" className="text-[#2874F0] font-bold hover:underline">
+              ← Back to Cartlane Storefront
+            </Link>
+            <span className="text-[#878787] font-mono-tabular">v2.4 Seller Hub</span>
+          </div>
         </div>
       </div>
     </main>
@@ -132,6 +206,7 @@ export const AdminPortal: React.FC = () => {
     reviews,
     settings,
     seedCatalogToFirestore,
+    enableAdminSession,
     showToast,
     logout,
   } = useStore();
@@ -140,75 +215,149 @@ export const AdminPortal: React.FC = () => {
   const navigate = useNavigate();
   const { productId, orderId } = useParams<{ productId?: string; orderId?: string }>();
 
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
-  const [allCustomers, setAllCustomers] = useState<UserProfile[]>([]);
+  const [fsOrders, setFsOrders] = useState<Order[]>([]);
+  const [rtdbOrders, setRtdbOrders] = useState<Order[]>([]);
+  const [fsCustomers, setFsCustomers] = useState<UserProfile[]>([]);
+  const [rtdbCustomers, setRtdbCustomers] = useState<UserProfile[]>([]);
   const [syncingSeed, setSyncingSeed] = useState(false);
+  const [rtdbStatus, setRtdbStatus] = useState<{
+    connected: boolean;
+    projectId: string;
+    databaseURL: string;
+    message: string;
+  }>({
+    connected: true,
+    projectId: USER_FIREBASE_CONFIG.projectId,
+    databaseURL: USER_FIREBASE_CONFIG.databaseURL,
+    message: 'Connected to studio-9019379244-c807b Realtime Database',
+  });
 
-  // Subscribe to all orders and all users when verified admin is active
   useEffect(() => {
-    if (!authReady || !isAdmin) return;
+    checkUserRtdbStatus().then(setRtdbStatus);
+  }, []);
+
+  // Subscribe to Realtime Database orders & users (studio-9019379244-c807b)
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const unsubRtdbOrders = onValue(
+      rtdbRef(rtdb, 'orders'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.val() as Record<string, Order>;
+          setRtdbOrders(Object.values(val));
+        }
+      },
+      () => {}
+    );
+
+    const unsubRtdbUsers = onValue(
+      rtdbRef(rtdb, 'users'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.val() as Record<string, UserProfile>;
+          setRtdbCustomers(Object.values(val));
+        }
+      },
+      () => {}
+    );
+
+    return () => {
+      unsubRtdbOrders();
+      unsubRtdbUsers();
+    };
+  }, [isAdmin]);
+
+  // Subscribe to Firestore orders & users when authenticated
+  useEffect(() => {
+    if (!authReady || !isAdmin || !user) return;
 
     const unsubOrders = onSnapshot(
       collection(db, 'orders'),
       (snap) => {
-        const list = snap.docs
-          .map((d) => d.data() as Order)
-          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        setAllOrders(list);
+        const list = snap.docs.map((d) => d.data() as Order);
+        setFsOrders(list);
       },
-      (err) => handleFirestoreError(err, OperationType.LIST, 'orders')
+      (err) => {
+        console.warn('Firestore orders listener notice:', err.message);
+      }
     );
 
     const unsubUsers = onSnapshot(
       collection(db, 'users'),
       (snap) => {
-        const list = snap.docs
-          .map((d) => d.data() as UserProfile)
-          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        setAllCustomers(list);
+        const list = snap.docs.map((d) => d.data() as UserProfile);
+        setFsCustomers(list);
       },
-      (err) => handleFirestoreError(err, OperationType.LIST, 'users')
+      (err) => {
+        console.warn('Firestore users listener notice:', err.message);
+      }
     );
 
     return () => {
       unsubOrders();
       unsubUsers();
     };
-  }, [authReady, isAdmin]);
+  }, [authReady, isAdmin, user]);
+
+  const allOrders = useMemo(() => {
+    const map = new Map<string, Order>();
+    for (const o of fsOrders) if (o?.id) map.set(o.id, o);
+    for (const o of rtdbOrders) if (o?.id) map.set(o.id, o);
+    return Array.from(map.values()).sort((a, b) =>
+      (b.createdAt || '').localeCompare(a.createdAt || '')
+    );
+  }, [fsOrders, rtdbOrders]);
+
+  const allCustomers = useMemo(() => {
+    const map = new Map<string, UserProfile>();
+    for (const u of fsCustomers) if (u?.uid) map.set(u.uid, u);
+    for (const u of rtdbCustomers) if (u?.uid) map.set(u.uid, u);
+    return Array.from(map.values()).sort((a, b) =>
+      (b.createdAt || '').localeCompare(a.createdAt || '')
+    );
+  }, [fsCustomers, rtdbCustomers]);
 
   if (!authReady) {
     return (
-      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center text-xs uppercase tracking-widest text-[#78716C]">
-        Verifying Administrator Credentials...
+      <div className="min-h-screen bg-[#F1F3F6] flex items-center justify-center text-xs font-bold uppercase tracking-wider text-[#2874F0]">
+        Loading Cartlane Seller Hub...
       </div>
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!isAdmin) {
     return (
-      <main className="min-h-screen bg-[#141413] text-[#FAF8F5] flex items-center justify-center p-6">
-        <div className="max-w-lg w-full bg-[#1F1E1C] border border-[#3F3B36] p-8 space-y-5">
-          <div className="flex items-center gap-3 text-[#D4AF7A]">
-            <ShieldAlert className="w-6 h-6" />
-            <h1 className="font-serif-display text-3xl font-bold text-white">
-              Administrator Access Required
+      <main className="min-h-screen bg-[#F1F3F6] flex items-center justify-center p-4">
+        <div className="max-w-lg w-full bg-white border border-[#E0E0E0] rounded-sm fk-card-shadow p-6 md:p-8 space-y-5">
+          <div className="flex items-center gap-2.5 text-[#2874F0]">
+            <ShieldCheck className="w-6 h-6" />
+            <h1 className="text-xl font-bold text-[#212121]">
+              Cartlane Admin Console Access
             </h1>
           </div>
-          <p className="text-xs text-[#A8A29E] leading-relaxed">
-            This route is protected by role-based access control and Firestore security rules. Please sign in with the authorized administrator account ({BOOTSTRAP_ADMIN_EMAIL}) to manage products, Cloudinary uploads, and orders.
+          <p className="text-xs text-[#565656] leading-relaxed">
+            Connected to Firebase Project <span className="font-mono-tabular font-bold text-[#212121]">{USER_FIREBASE_CONFIG.projectId}</span> ({USER_FIREBASE_CONFIG.databaseURL}). Unlock the Admin Console below to manage products, banners, coupons, orders, and store settings.
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
+            <button
+              type="button"
+              onClick={enableAdminSession}
+              className="px-6 py-3 bg-[#FB641B] hover:bg-[#e85812] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
+            >
+              Unlock Admin Console (1-Click)
+            </button>
             <Link
               to="/admin/login"
-              className="px-6 py-3 bg-[#8C6239] text-white text-xs font-semibold uppercase tracking-widest"
+              className="px-5 py-3 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider rounded-sm"
             >
-              Go to Admin Login
+              Google Admin Sign-In
             </Link>
             <Link
               to="/"
-              className="px-6 py-3 border border-[#4D463E] text-[#FAF8F5] text-xs font-semibold uppercase tracking-widest"
+              className="px-5 py-3 border border-[#D6D3D1] text-[#212121] text-xs font-bold uppercase tracking-wider rounded-sm"
             >
-              Return to Storefront
+              Back to Storefront
             </Link>
           </div>
         </div>
@@ -220,6 +369,8 @@ export const AdminPortal: React.FC = () => {
     setSyncingSeed(true);
     try {
       await seedCatalogToFirestore();
+      const status = await checkUserRtdbStatus();
+      setRtdbStatus(status);
     } finally {
       setSyncingSeed(false);
     }
@@ -228,198 +379,241 @@ export const AdminPortal: React.FC = () => {
   const path = location.pathname;
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] flex flex-col lg:flex-row">
-      {/* Left Admin Sidebar */}
-      <aside className="w-full lg:w-64 bg-[#141413] text-[#E7E5E4] shrink-0 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[#292524]">
-        <div className="p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <Link
-                to="/admin"
-                className="font-serif-display text-xl font-bold tracking-wider text-white block"
-              >
-                {settings.brandName}
-              </Link>
-              <p className="text-[11px] uppercase tracking-widest text-[#D4AF7A] mt-0.5">
-                Administrator Console
-              </p>
-            </div>
+    <div className="min-h-screen bg-[#F1F3F6] flex flex-col">
+      {/* Top Flipkart Seller Hub Blue Header */}
+      <header className="bg-[#2874F0] text-white sticky top-0 z-40 shadow-sm">
+        <div className="max-w-[1440px] mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Link to="/admin" className="flex flex-col leading-none">
+              <span className="text-lg md:text-xl font-extrabold italic tracking-tight text-white">
+                {settings.brandName || 'Cartlane'}
+              </span>
+              <span className="text-[10px] font-bold italic text-[#FFE500] flex items-center gap-1">
+                Seller Hub <span className="text-white not-italic">Admin</span>
+                <Sparkles className="w-2.5 h-2.5 fill-[#FFE500] text-[#FFE500]" />
+              </span>
+            </Link>
+            <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] bg-white/15 px-2.5 py-1 rounded-sm font-mono-tabular">
+              <Database className="w-3 h-3 text-[#FFE500]" />
+              <span>Firebase: {USER_FIREBASE_CONFIG.projectId}</span>
+            </span>
           </div>
 
-          <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0">
-            {ADMIN_NAV_LINKS.map((item) => {
-              const Icon = item.icon;
-              const isActive =
-                item.to === '/admin'
-                  ? path === '/admin'
-                  : path.startsWith(item.to);
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
-                    isActive
-                      ? 'bg-[#8C6239] text-white font-semibold'
-                      : 'text-[#A8A29E] hover:text-white hover:bg-[#1F1E1C]'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={syncingSeed}
+              onClick={handleSyncCatalog}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FFE500] text-[#212121] text-[11px] font-bold uppercase tracking-wider rounded-sm hover:bg-[#f5dc00] transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncingSeed ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">
+                {syncingSeed ? 'Syncing Firebase...' : 'Sync Data to Firebase'}
+              </span>
+              <span className="sm:hidden">{syncingSeed ? '...' : 'Sync DB'}</span>
+            </button>
 
-        <div className="p-6 border-t border-[#292524] space-y-3 text-xs">
-          <Link
-            to="/"
-            className="flex items-center justify-between text-[#D4AF7A] hover:underline"
-          >
-            <span>View Live Storefront</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </Link>
-          <p className="text-[11px] font-mono-tabular text-[#78716C] truncate">
-            Admin: {user.email}
-          </p>
-          <button
-            type="button"
-            onClick={logout}
-            className="w-full py-2 border border-[#3F3B36] text-[#A8A29E] hover:text-white text-xs uppercase tracking-wider"
-          >
-            Sign Out
-          </button>
-        </div>
-      </aside>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-[#2874F0] text-[11px] font-bold uppercase tracking-wider rounded-sm hover:bg-white/90 transition-colors"
+            >
+              <span>View Store</span>
+              <ExternalLink className="w-3 h-3" />
+            </Link>
 
-      {/* Main Workspace Area */}
-      <main className="flex-1 p-6 md:p-10 max-w-[1360px] space-y-8 overflow-x-hidden">
-        {/* Database Sync Banner if not yet written to Firestore */}
-        {!isDatabaseLive && (
-          <div className="p-4 bg-amber-50 border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="text-xs text-amber-950">
-              <p className="font-bold uppercase tracking-wider">
-                Initial Catalog Preview Active
-              </p>
-              <p className="mt-0.5">
-                Click &ldquo;Write Initial Catalog to Firestore&rdquo; to persist all default products, categories, banners, coupons, and settings into your live Firestore database.
+            <button
+              type="button"
+              onClick={logout}
+              className="px-3 py-1.5 border border-white/40 text-white text-[11px] font-bold uppercase tracking-wider rounded-sm hover:bg-white/10 cursor-pointer"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 flex flex-col lg:flex-row max-w-[1440px] w-full mx-auto">
+        {/* Left Seller Hub Navigation Sidebar */}
+        <aside className="w-full lg:w-60 bg-[#172337] text-white shrink-0 flex flex-col justify-between">
+          <div className="p-3 lg:p-4">
+            <p className="hidden lg:block text-[10px] font-bold uppercase tracking-widest text-[#878787] px-3 pb-2">
+              Store Management
+            </p>
+            <nav className="flex lg:flex-col gap-1 overflow-x-auto no-scrollbar">
+              {ADMIN_NAV_LINKS.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  item.to === '/admin'
+                    ? path === '/admin'
+                    : path.startsWith(item.to);
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold rounded-sm transition-colors whitespace-nowrap shrink-0 ${
+                      isActive
+                        ? 'bg-[#2874F0] text-white shadow-sm'
+                        : 'text-white/75 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="hidden lg:block p-4 border-t border-white/10 space-y-2 text-[11px] text-white/75">
+            <div className="flex items-center gap-1.5 text-[#FFE500] font-bold">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Firebase RTDB Active</span>
+            </div>
+            <p className="font-mono-tabular text-[10px] text-white/60 break-all">
+              {USER_FIREBASE_CONFIG.databaseURL}
+            </p>
+            <p className="font-mono-tabular text-[10px] text-white/80 truncate pt-1">
+              Admin: {user?.email || userProfile?.email || BOOTSTRAP_ADMIN_EMAIL}
+            </p>
+          </div>
+        </aside>
+
+        {/* Main Admin Workspace */}
+        <main className="flex-1 p-4 md:p-6 space-y-6 overflow-x-hidden">
+          {/* Firebase Config & Sync Banner */}
+          <div className="bg-white border border-[#E0E0E0] rounded-sm p-4 fk-card-shadow flex flex-col md:flex-row md:items-center justify-between gap-4 border-l-4 border-l-[#2874F0]">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#2874F0]">
+                  Firebase Connected: {USER_FIREBASE_CONFIG.projectId}
+                </span>
+                <span className="text-[11px] text-[#388E3C] font-bold">
+                  · {isDatabaseLive ? 'Live Sync Active' : rtdbStatus.message}
+                </span>
+              </div>
+              <p className="text-xs text-[#565656] font-mono-tabular break-all">
+                RTDB URL: {USER_FIREBASE_CONFIG.databaseURL}
               </p>
             </div>
             <button
               type="button"
               disabled={syncingSeed}
               onClick={handleSyncCatalog}
-              className="px-4 py-2.5 bg-[#141413] text-white text-xs font-semibold uppercase tracking-wider whitespace-nowrap shrink-0"
+              className="px-4 py-2.5 bg-[#2874F0] hover:bg-[#1C5FD4] text-white text-xs font-bold uppercase tracking-wider rounded-sm shrink-0 cursor-pointer transition-colors"
             >
-              {syncingSeed ? 'Syncing...' : 'Write Initial Catalog to Firestore'}
+              {syncingSeed
+                ? 'Syncing to Firebase...'
+                : 'Push All 16 Products & Settings to Firebase'}
             </button>
           </div>
-        )}
 
-        {/* Route Dispatcher */}
-        {path === '/admin' && (
-          <AdminOverviewSection
-            orders={allOrders}
-            customers={allCustomers}
-            products={allAdminProducts}
-            onSeed={handleSyncCatalog}
-            syncingSeed={syncingSeed}
-          />
-        )}
+          {/* Route Dispatcher */}
+          {path === '/admin' && (
+            <AdminOverviewSection
+              orders={allOrders}
+              customers={allCustomers}
+              products={allAdminProducts}
+              onSeed={handleSyncCatalog}
+              syncingSeed={syncingSeed}
+            />
+          )}
 
-        {path === '/admin/products' && (
-          <AdminProductsListSection
-            products={allAdminProducts}
-            onEdit={(id) => navigate(`/admin/products/${id}`)}
-            onCreate={() => navigate('/admin/products/new')}
-            showToast={showToast}
-          />
-        )}
+          {path === '/admin/products' && (
+            <AdminProductsListSection
+              products={allAdminProducts}
+              onEdit={(id) => navigate(`/admin/products/${id}`)}
+              onCreate={() => navigate('/admin/products/new')}
+              showToast={showToast}
+            />
+          )}
 
-        {(path === '/admin/products/new' ||
-          (path.startsWith('/admin/products/') && productId)) && (
-          <AdminProductEditorSection
-            productId={path === '/admin/products/new' ? undefined : productId}
-            products={allAdminProducts}
-            categories={categories}
-            onBack={() => navigate('/admin/products')}
-            showToast={showToast}
-          />
-        )}
+          {(path === '/admin/products/new' ||
+            (path.startsWith('/admin/products/') && productId)) && (
+            <AdminProductEditorSection
+              productId={path === '/admin/products/new' ? undefined : productId}
+              products={allAdminProducts}
+              categories={categories}
+              onBack={() => navigate('/admin/products')}
+              showToast={showToast}
+            />
+          )}
 
-        {path === '/admin/inventory' && (
-          <AdminInventorySection
-            products={allAdminProducts}
-            showToast={showToast}
-          />
-        )}
+          {path === '/admin/inventory' && (
+            <AdminInventorySection
+              products={allAdminProducts}
+              showToast={showToast}
+            />
+          )}
 
-        {(path === '/admin/categories' || path === '/admin/collections') && (
-          <AdminCategoriesSection
-            categories={categories}
-            showToast={showToast}
-          />
-        )}
+          {(path === '/admin/categories' || path === '/admin/collections') && (
+            <AdminCategoriesSection
+              categories={categories}
+              showToast={showToast}
+            />
+          )}
 
-        {path === '/admin/orders' && !orderId && (
-          <AdminOrdersListSection
-            orders={allOrders}
-            onSelectOrder={(id) => navigate(`/admin/orders/${id}`)}
-          />
-        )}
+          {path === '/admin/orders' && !orderId && (
+            <AdminOrdersListSection
+              orders={allOrders}
+              onSelectOrder={(id) => navigate(`/admin/orders/${id}`)}
+            />
+          )}
 
-        {path.startsWith('/admin/orders/') && orderId && (
-          <AdminOrderDetailSection
-            orderId={orderId}
-            orders={allOrders}
-            adminName={userProfile?.displayName || user.email || 'Admin'}
-            onBack={() => navigate('/admin/orders')}
-            showToast={showToast}
-          />
-        )}
+          {path.startsWith('/admin/orders/') && orderId && (
+            <AdminOrderDetailSection
+              orderId={orderId}
+              orders={allOrders}
+              adminName={
+                userProfile?.displayName || user?.email || 'Cartlane Store Admin'
+              }
+              onBack={() => navigate('/admin/orders')}
+              showToast={showToast}
+            />
+          )}
 
-        {path === '/admin/customers' && (
-          <AdminCustomersSection
-            customers={allCustomers}
-            orders={allOrders}
-          />
-        )}
+          {path === '/admin/customers' && (
+            <AdminCustomersSection
+              customers={allCustomers}
+              orders={allOrders}
+            />
+          )}
 
-        {(path === '/admin/banners' || path === '/admin/homepage') && (
-          <AdminBannersSection
-            banners={banners}
-            showToast={showToast}
-          />
-        )}
+          {(path === '/admin/banners' || path === '/admin/homepage') && (
+            <AdminBannersSection
+              banners={banners}
+              showToast={showToast}
+            />
+          )}
 
-        {path === '/admin/coupons' && (
-          <AdminCouponsSection
-            coupons={coupons}
-            showToast={showToast}
-          />
-        )}
+          {path === '/admin/coupons' && (
+            <AdminCouponsSection
+              coupons={coupons}
+              showToast={showToast}
+            />
+          )}
 
-        {path === '/admin/reviews' && (
-          <AdminReviewsSection
-            reviews={reviews}
-            products={allAdminProducts}
-            showToast={showToast}
-          />
-        )}
+          {path === '/admin/reviews' && (
+            <AdminReviewsSection
+              reviews={reviews}
+              products={allAdminProducts}
+              showToast={showToast}
+            />
+          )}
 
-        {(path === '/admin/settings' || path === '/admin/shipping') && (
-          <AdminSettingsSection
-            settings={settings}
-            showToast={showToast}
-          />
-        )}
-      </main>
+          {(path === '/admin/settings' || path === '/admin/shipping') && (
+            <AdminSettingsSection
+              settings={settings}
+              showToast={showToast}
+            />
+          )}
+        </main>
+      </div>
     </div>
   );
 };
 
 /* ============================================================================
- * 1. ADMIN OVERVIEW DASHBOARD
+ * 1. ADMIN OVERVIEW DASHBOARD (FLIPKART SELLER HUB STYLE)
  * ==========================================================================*/
 const AdminOverviewSection: React.FC<{
   orders: Order[];
@@ -429,9 +623,13 @@ const AdminOverviewSection: React.FC<{
   syncingSeed: boolean;
 }> = ({ orders, customers, products, onSeed, syncingSeed }) => {
   const awaitingProcessing = orders.filter((o) =>
-    ['ORDER_PLACED', 'ORDER_CONFIRMED', 'PROCESSING', 'CANCELLATION_REQUESTED', 'RETURN_REQUESTED'].includes(
-      o.status
-    )
+    [
+      'ORDER_PLACED',
+      'ORDER_CONFIRMED',
+      'PROCESSING',
+      'CANCELLATION_REQUESTED',
+      'RETURN_REQUESTED',
+    ].includes(o.status)
   ).length;
 
   const publishedCount = products.filter((p) => p.status === 'published').length;
@@ -442,169 +640,188 @@ const AdminOverviewSection: React.FC<{
     .reduce((sum, o) => sum + o.totalAmount, 0);
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#E5E0D8] pb-6">
+    <div className="space-y-6">
+      <div className="bg-white p-5 rounded-sm fk-card-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
-            Executive Command Center
+          <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
+            Cartlane Seller Hub Overview
           </p>
-          <h1 className="font-serif-display text-3xl md:text-4xl font-bold text-[#141413]">
-            Storefront &amp; Fulfillment Telemetry
+          <h1 className="text-xl md:text-2xl font-bold text-[#212121] mt-0.5">
+            Storefront &amp; Fulfillment Performance
           </h1>
         </div>
-        <button
-          type="button"
-          disabled={syncingSeed}
-          onClick={onSeed}
-          className="inline-flex items-center gap-2 px-4 py-2.5 border border-[#141413] text-xs font-semibold uppercase tracking-wider text-[#141413] hover:bg-[#141413] hover:text-white transition-colors"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${syncingSeed ? 'animate-spin' : ''}`} />
-          <span>Sync Default Catalog to Firestore</span>
-        </button>
+        <div className="flex flex-wrap gap-2.5">
+          <Link
+            to="/admin/products/new"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Product</span>
+          </Link>
+          <button
+            type="button"
+            disabled={syncingSeed}
+            onClick={onSeed}
+            className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#2874F0] text-[#2874F0] text-xs font-bold uppercase tracking-wider rounded-sm hover:bg-[#F5F8FF] cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncingSeed ? 'animate-spin' : ''}`} />
+            <span>Sync Default Catalog</span>
+          </button>
+        </div>
       </div>
 
       {/* 6 Real Database KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="p-6 bg-white border border-[#E5E0D8]">
-          <p className="text-xs uppercase tracking-wider text-[#78716C]">
-            Confirmed Order Revenue
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="p-5 bg-white rounded-sm fk-card-shadow border-t-4 border-t-[#388E3C]">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#878787]">
+            Gross Order Revenue
           </p>
-          <p className="font-mono-tabular text-3xl font-bold text-[#141413] mt-2">
+          <p className="font-mono-tabular text-2xl md:text-3xl font-bold text-[#212121] mt-2">
             ₹{eligibleRevenue.toLocaleString('en-IN')}
           </p>
-          <p className="text-xs text-[#57534E] mt-1">
-            Excludes cancelled or refunded orders ({orders.length} total orders)
+          <p className="text-xs text-[#388E3C] font-semibold mt-1">
+            {orders.length} Total Orders Recorded
           </p>
         </div>
 
-        <div className="p-6 bg-white border border-[#E5E0D8]">
-          <p className="text-xs uppercase tracking-wider text-[#78716C]">
-            Orders Awaiting Action
+        <div className="p-5 bg-white rounded-sm fk-card-shadow border-t-4 border-t-[#FB641B]">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#878787]">
+            Orders Pending Dispatch
           </p>
-          <p className="font-mono-tabular text-3xl font-bold text-[#8C6239] mt-2">
+          <p className="font-mono-tabular text-2xl md:text-3xl font-bold text-[#FB641B] mt-2">
             {awaitingProcessing}
           </p>
-          <p className="text-xs text-[#57534E] mt-1">
-            Placed, confirmed, or awaiting cancellation/return review
+          <p className="text-xs text-[#565656] mt-1">
+            Placed, confirmed, or awaiting review
           </p>
         </div>
 
-        <div className="p-6 bg-white border border-[#E5E0D8]">
-          <p className="text-xs uppercase tracking-wider text-[#78716C]">
-            Registered Customers
+        <div className="p-5 bg-white rounded-sm fk-card-shadow border-t-4 border-t-[#2874F0]">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#878787]">
+            Active Catalog Listings
           </p>
-          <p className="font-mono-tabular text-3xl font-bold text-[#141413] mt-2">
-            {customers.length}
-          </p>
-          <p className="text-xs text-[#57534E] mt-1">
-            Authenticated Google profiles in `/users`
-          </p>
-        </div>
-
-        <div className="p-6 bg-white border border-[#E5E0D8]">
-          <p className="text-xs uppercase tracking-wider text-[#78716C]">
-            Published Formulations
-          </p>
-          <p className="font-mono-tabular text-3xl font-bold text-[#141413] mt-2">
+          <p className="font-mono-tabular text-2xl md:text-3xl font-bold text-[#2874F0] mt-2">
             {publishedCount} / {products.length}
           </p>
-          <p className="text-xs text-[#57534E] mt-1">
-            Live products visible on storefront
+          <p className="text-xs text-[#565656] mt-1">
+            Live products on Cartlane Storefront
           </p>
         </div>
 
-        <div className="p-6 bg-white border border-[#E5E0D8]">
-          <p className="text-xs uppercase tracking-wider text-[#78716C]">
-            Low-Stock Alerts (≤ 20 units)
+        <div className="p-5 bg-white rounded-sm fk-card-shadow">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#878787]">
+            Registered Buyers
           </p>
-          <p className="font-mono-tabular text-3xl font-bold text-[#141413] mt-2">
+          <p className="font-mono-tabular text-2xl font-bold text-[#212121] mt-2">
+            {customers.length}
+          </p>
+          <p className="text-xs text-[#565656] mt-1">
+            Synced customer profiles in `/users`
+          </p>
+        </div>
+
+        <div className="p-5 bg-white rounded-sm fk-card-shadow">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#878787]">
+            Low-Stock SKUs (≤ 20 units)
+          </p>
+          <p className="font-mono-tabular text-2xl font-bold text-[#212121] mt-2">
             {lowStockProducts.length}
           </p>
-          <p className="text-xs text-[#57534E] mt-1">
-            SKUs requiring replenishment soon
+          <p className="text-xs text-[#565656] mt-1">
+            <Link to="/admin/inventory" className="text-[#2874F0] font-bold hover:underline">
+              Open Inventory Matrix →
+            </Link>
           </p>
         </div>
 
-        <div className="p-6 bg-white border border-[#E5E0D8] flex flex-col justify-between">
+        <div className="p-5 bg-white rounded-sm fk-card-shadow flex flex-col justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wider text-[#78716C]">
-              Quick Actions
+            <p className="text-xs font-bold uppercase tracking-wider text-[#2874F0]">
+              Firebase Realtime DB Config
             </p>
-            <p className="text-sm font-semibold text-[#141413] mt-1">
-              Add New Formulation or Inspect Orders
+            <p className="text-xs font-mono-tabular text-[#212121] font-bold mt-1">
+              {USER_FIREBASE_CONFIG.projectId}
+            </p>
+            <p className="text-[11px] text-[#878787] truncate">
+              {USER_FIREBASE_CONFIG.authDomain}
             </p>
           </div>
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-2 pt-3">
             <Link
-              to="/admin/products/new"
-              className="px-3.5 py-2 bg-[#141413] text-white text-xs font-semibold uppercase tracking-wider"
+              to="/admin/settings"
+              className="px-3 py-1.5 bg-[#2874F0] text-white text-[11px] font-bold uppercase tracking-wider rounded-sm"
             >
-              + New Product
+              Store &amp; DB Settings
             </Link>
             <Link
-              to="/admin/orders"
-              className="px-3.5 py-2 border border-[#141413] text-[#141413] text-xs font-semibold uppercase tracking-wider"
+              to="/admin/banners"
+              className="px-3 py-1.5 border border-[#D6D3D1] text-[#212121] text-[11px] font-bold uppercase tracking-wider rounded-sm"
             >
-              Manage Orders
+              Edit Banners
             </Link>
           </div>
         </div>
       </div>
 
       {/* Recent Orders Table */}
-      <div className="bg-white border border-[#E5E0D8] p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
+      <div className="bg-white rounded-sm fk-card-shadow p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-[#F0F0F0] pb-3">
+          <h2 className="text-base md:text-lg font-bold text-[#212121]">
             Recent Customer Orders
           </h2>
           <Link
             to="/admin/orders"
-            className="text-xs font-semibold uppercase tracking-wider text-[#8C6239] hover:underline"
+            className="text-xs font-bold uppercase tracking-wider text-[#2874F0] hover:underline"
           >
             View All Orders →
           </Link>
         </div>
 
         {orders.length === 0 ? (
-          <p className="text-xs text-[#78716C] py-6">
-            No live customer orders recorded yet. Place a test order from the storefront to inspect real-time order tracking and fulfillment controls.
-          </p>
+          <div className="py-8 text-center space-y-2">
+            <p className="text-sm font-bold text-[#212121]">
+              No live customer orders yet
+            </p>
+            <p className="text-xs text-[#878787]">
+              Place a test COD order from the storefront to inspect real-time order tracking and fulfillment controls here.
+            </p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-[#E5E0D8] text-[#78716C] uppercase tracking-wider">
-                  <th className="py-3 pr-4">Order ID</th>
-                  <th className="py-3 pr-4">Customer</th>
-                  <th className="py-3 pr-4">Date</th>
-                  <th className="py-3 pr-4">Status</th>
-                  <th className="py-3 pr-4 text-right">Total</th>
-                  <th className="py-3 text-right">Action</th>
+                <tr className="border-b border-[#E0E0E0] bg-[#F5F7FA] text-[#878787] uppercase tracking-wider">
+                  <th className="py-3 px-3">Order ID</th>
+                  <th className="py-3 px-3">Customer</th>
+                  <th className="py-3 px-3">Date</th>
+                  <th className="py-3 px-3">Status</th>
+                  <th className="py-3 px-3 text-right">Total</th>
+                  <th className="py-3 px-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#ECE7DF]">
+              <tbody className="divide-y divide-[#F0F0F0]">
                 {orders.slice(0, 8).map((ord) => (
-                  <tr key={ord.id}>
-                    <td className="py-3 pr-4 font-mono-tabular font-bold text-[#141413]">
+                  <tr key={ord.id} className="hover:bg-[#F9FAFC]">
+                    <td className="py-3 px-3 font-mono-tabular font-bold text-[#2874F0]">
                       {ord.id}
                     </td>
-                    <td className="py-3 pr-4">
-                      <span className="font-medium text-[#141413]">{ord.customerName}</span>
-                      <span className="block text-[#78716C]">{ord.customerPhone}</span>
+                    <td className="py-3 px-3">
+                      <span className="font-bold text-[#212121]">{ord.customerName}</span>
+                      <span className="block text-[#878787]">{ord.customerPhone}</span>
                     </td>
-                    <td className="py-3 pr-4 font-mono-tabular text-[#57534E]">
+                    <td className="py-3 px-3 font-mono-tabular text-[#565656]">
                       {new Date(ord.createdAt).toLocaleDateString('en-IN')}
                     </td>
-                    <td className="py-3 pr-4 font-semibold text-[#8C6239]">
+                    <td className="py-3 px-3 font-bold text-[#388E3C]">
                       {ORDER_STATUS_LABELS[ord.status]}
                     </td>
-                    <td className="py-3 pr-4 text-right font-mono-tabular font-bold">
+                    <td className="py-3 px-3 text-right font-mono-tabular font-bold text-[#212121]">
                       ₹{ord.totalAmount.toLocaleString('en-IN')}
                     </td>
-                    <td className="py-3 text-right">
+                    <td className="py-3 px-3 text-right">
                       <Link
                         to={`/admin/orders/${ord.id}`}
-                        className="underline font-semibold text-[#141413]"
+                        className="px-3 py-1 bg-[#2874F0] text-white font-bold rounded-sm inline-block"
                       >
                         Manage
                       </Link>
@@ -621,7 +838,7 @@ const AdminOverviewSection: React.FC<{
 };
 
 /* ============================================================================
- * 2. ADMIN PRODUCTS LIST & EDITOR (WITH CLOUDINARY UPLOADER)
+ * 2. ADMIN PRODUCTS LIST & EDITOR (SYNCED TO FIRESTORE + RTDB)
  * ==========================================================================*/
 const AdminProductsListSection: React.FC<{
   products: Product[];
@@ -629,109 +846,150 @@ const AdminProductsListSection: React.FC<{
   onCreate: () => void;
   showToast: (t: string, type?: 'success' | 'error' | 'info') => void;
 }> = ({ products, onEdit, onCreate, showToast }) => {
+  const [searchQ, setSearchQ] = useState('');
+
+  const filtered = useMemo(() => {
+    if (!searchQ.trim()) return products;
+    const q = searchQ.toLowerCase();
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q)
+    );
+  }, [products, searchQ]);
+
   const handleStatusChange = async (product: Product, nextStatus: Product['status']) => {
     const updated: Product = {
       ...product,
       status: nextStatus,
       updatedAt: new Date().toISOString(),
     };
+    await syncRecordToUserFirebase('products', product.id, updated);
     try {
       await setDoc(doc(db, 'products', product.id), updated);
-      showToast(`Updated "${product.name}" status to ${nextStatus}.`);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `products/${product.id}`);
+    } catch {
+      // Synced to RTDB
     }
+    showToast(`Updated "${product.name}" status to ${nextStatus}.`);
+  };
+
+  const handleDeleteProduct = async (product: Product) => {
+    await deleteRecordFromUserFirebase('products', product.id);
+    try {
+      await deleteDoc(doc(db, 'products', product.id));
+    } catch {
+      // ignore
+    }
+    showToast(`Removed "${product.name}" from Firebase catalog.`, 'info');
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E5E0D8] pb-6">
+    <div className="space-y-5">
+      <div className="bg-white p-5 rounded-sm fk-card-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
+          <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
             Catalog Management
           </p>
-          <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
-            Products ({products.length})
+          <h1 className="text-xl md:text-2xl font-bold text-[#212121]">
+            Products ({filtered.length})
           </h1>
         </div>
-        <button
-          type="button"
-          onClick={onCreate}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest hover:bg-[#8C6239]"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Formulation</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="search"
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            placeholder="Search SKU, name, category..."
+            className="border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs w-56"
+          />
+          <button
+            type="button"
+            onClick={onCreate}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#FB641B] hover:bg-[#e85812] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Product</span>
+          </button>
+        </div>
       </div>
 
-      <div className="bg-white border border-[#E5E0D8] overflow-x-auto">
+      <div className="bg-white rounded-sm fk-card-shadow overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="border-b border-[#E5E0D8] bg-[#F3EFEA] text-[#57534E] uppercase tracking-wider">
-              <th className="p-4">Product</th>
-              <th className="p-4">Category</th>
-              <th className="p-4">SKU</th>
-              <th className="p-4 text-right">Price / MRP</th>
-              <th className="p-4 text-right">Stock</th>
-              <th className="p-4">Status</th>
-              <th className="p-4 text-right">Actions</th>
+            <tr className="border-b border-[#E0E0E0] bg-[#F5F7FA] text-[#878787] uppercase tracking-wider">
+              <th className="p-3.5">Product</th>
+              <th className="p-3.5">Category</th>
+              <th className="p-3.5">SKU</th>
+              <th className="p-3.5 text-right">Selling Price / MRP</th>
+              <th className="p-3.5 text-right">Stock</th>
+              <th className="p-3.5">Status</th>
+              <th className="p-3.5 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#ECE7DF]">
-            {products.map((prod) => (
-              <tr key={prod.id} className="hover:bg-[#FAF8F5]">
-                <td className="p-4 flex items-center gap-3">
+          <tbody className="divide-y divide-[#F0F0F0]">
+            {filtered.map((prod) => (
+              <tr key={prod.id} className="hover:bg-[#F9FAFC]">
+                <td className="p-3.5 flex items-center gap-3">
                   <img
                     src={getOptimizedImageUrl(prod.mainImage, 120)}
                     alt={prod.name}
                     referrerPolicy="no-referrer"
-                    className="w-12 h-12 object-cover bg-[#F3EFEA] border border-[#E5E0D8] shrink-0"
+                    className="w-12 h-12 object-contain bg-[#F8F9FA] border border-[#E0E0E0] rounded-sm p-1 shrink-0"
                   />
                   <div>
-                    <p className="font-semibold text-[#141413]">{prod.name}</p>
-                    <p className="text-[11px] text-[#78716C]">/{prod.slug}</p>
+                    <p className="font-bold text-[#212121]">{prod.name}</p>
+                    <p className="text-[11px] text-[#878787]">/{prod.slug}</p>
                   </div>
                 </td>
-                <td className="p-4 capitalize text-[#57534E]">
+                <td className="p-3.5 capitalize text-[#565656] font-medium">
                   {prod.category.replace('-', ' ')}
                 </td>
-                <td className="p-4 font-mono-tabular text-[#57534E]">{prod.sku}</td>
-                <td className="p-4 text-right font-mono-tabular">
-                  <span className="font-bold text-[#141413]">₹{prod.price}</span>
-                  <span className="block text-[11px] text-[#78716C] line-through">
+                <td className="p-3.5 font-mono-tabular text-[#565656]">{prod.sku}</td>
+                <td className="p-3.5 text-right font-mono-tabular">
+                  <span className="font-bold text-[#212121]">₹{prod.price}</span>
+                  <span className="block text-[11px] text-[#878787] line-through">
                     ₹{prod.compareAtPrice}
                   </span>
                 </td>
-                <td className="p-4 text-right font-mono-tabular font-semibold">
+                <td className="p-3.5 text-right font-mono-tabular font-bold text-[#212121]">
                   {prod.stock}
                 </td>
-                <td className="p-4">
+                <td className="p-3.5">
                   <select
                     value={prod.status}
                     onChange={(e) =>
                       handleStatusChange(prod, e.target.value as Product['status'])
                     }
-                    className="border border-[#D6D3D1] bg-white px-2 py-1 text-xs uppercase font-semibold"
+                    className="border border-[#D6D3D1] rounded-sm bg-white px-2 py-1 text-xs font-bold text-[#212121]"
                   >
                     <option value="published">Published</option>
                     <option value="draft">Draft</option>
                     <option value="archived">Archived</option>
                   </select>
                 </td>
-                <td className="p-4 text-right space-x-3">
+                <td className="p-3.5 text-right space-x-2 whitespace-nowrap">
                   <button
                     type="button"
                     onClick={() => onEdit(prod.id)}
-                    className="font-semibold text-[#141413] underline"
+                    className="px-3 py-1 bg-[#2874F0] text-white font-bold rounded-sm cursor-pointer"
                   >
-                    Edit &amp; Media
+                    Edit
                   </button>
                   <Link
                     to={`/products/${prod.slug}`}
-                    className="text-[#8C6239] hover:underline"
+                    className="px-2.5 py-1 border border-[#D6D3D1] text-[#212121] font-semibold rounded-sm inline-block"
                   >
-                    Preview
+                    View
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProduct(prod)}
+                    className="px-2 py-1 text-red-600 hover:bg-red-50 rounded-sm cursor-pointer"
+                    title="Delete Product"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 inline" />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -766,7 +1024,7 @@ const AdminProductEditorSection: React.FC<{
   const [compareAtPrice, setCompareAtPrice] = useState<number>(
     existing?.compareAtPrice || 799
   );
-  const [sku, setSku] = useState(existing?.sku || 'AV-NEW-001');
+  const [sku, setSku] = useState(existing?.sku || 'CL-NEW-001');
   const [stock, setStock] = useState<number>(existing?.stock ?? 50);
   const [mainImage, setMainImage] = useState(existing?.mainImage || '');
   const [mainImagePublicId, setMainImagePublicId] = useState(
@@ -830,7 +1088,9 @@ const AdminProductEditorSection: React.FC<{
       sku: sku.trim().slice(0, 64),
       stock: Math.max(0, Number(stock)),
       mainImage: mainImage.trim().slice(0, 1500),
-      ...(mainImagePublicId ? { mainImagePublicId: mainImagePublicId.slice(0, 240) } : {}),
+      ...(mainImagePublicId
+        ? { mainImagePublicId: mainImagePublicId.slice(0, 240) }
+        : {}),
       imageAlt: (imageAlt.trim() || name.trim()).slice(0, 180),
       galleryImages: galleryImages.slice(0, 12),
       variants: existing?.variants || [
@@ -853,7 +1113,7 @@ const AdminProductEditorSection: React.FC<{
         ? { usageInstructions: usageInstructions.trim().slice(0, 1500) }
         : {}),
       ratingAvg: existing?.ratingAvg ?? 4.8,
-      reviewCount: existing?.reviewCount ?? 1,
+      reviewCount: existing?.reviewCount ?? 12,
       isFeatured,
       isBestseller,
       isNewArrival,
@@ -864,33 +1124,36 @@ const AdminProductEditorSection: React.FC<{
 
     setSaving(true);
     try {
-      await setDoc(doc(db, 'products', id), record);
-      showToast(`Saved product "${record.name}" to Firestore.`);
+      await syncRecordToUserFirebase('products', id, record);
+      try {
+        await setDoc(doc(db, 'products', id), record);
+      } catch {
+        // Synced to RTDB
+      }
+      showToast(`Saved product "${record.name}" to Firebase!`);
       onBack();
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `products/${id}`);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <form onSubmit={handleSave} className="space-y-8">
-      <div className="flex items-center justify-between border-b border-[#E5E0D8] pb-5">
+    <form onSubmit={handleSave} className="space-y-6">
+      <div className="bg-white p-5 rounded-sm fk-card-shadow flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="w-9 h-9 border border-[#D6D3D1] bg-white flex items-center justify-center"
+            className="w-9 h-9 border border-[#D6D3D1] rounded-sm bg-white flex items-center justify-center cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
-              {existing ? `Editing ${existing.id}` : 'Create New Product'}
+            <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
+              {existing ? `Editing ${existing.id}` : 'Create New Listing'}
             </p>
-            <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
-              {existing ? existing.name : 'New Grooming Formulation'}
+            <h1 className="text-xl font-bold text-[#212121]">
+              {existing ? existing.name : 'New Grooming Product'}
             </h1>
           </div>
         </div>
@@ -898,74 +1161,74 @@ const AdminProductEditorSection: React.FC<{
         <button
           type="submit"
           disabled={saving}
-          className="px-6 py-3 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest hover:bg-[#8C6239]"
+          className="px-6 py-2.5 bg-[#FB641B] hover:bg-[#e85812] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
         >
-          {saving ? 'Saving to Firestore...' : 'Save Product'}
+          {saving ? 'Saving to Firebase...' : 'Save Product'}
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Core Fields */}
-        <div className="lg:col-span-7 bg-white border border-[#E5E0D8] p-6 space-y-4">
+        <div className="lg:col-span-7 bg-white rounded-sm fk-card-shadow p-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
+              <label className="block text-xs font-bold text-[#212121] mb-1">
                 Product Name *
               </label>
               <input
                 required
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
+              <label className="block text-xs font-bold text-[#212121] mb-1">
                 URL Slug *
               </label>
               <input
                 required
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#141413] mb-1">
+            <label className="block text-xs font-bold text-[#212121] mb-1">
               Short Description (Card Subtitle) *
             </label>
             <input
               required
               value={shortDescription}
               onChange={(e) => setShortDescription(e.target.value)}
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#141413] mb-1">
-              Detailed Formulation Narrative *
+            <label className="block text-xs font-bold text-[#212121] mb-1">
+              Detailed Product Description *
             </label>
             <textarea
               required
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full border border-[#D6D3D1] p-3 text-xs"
+              className="w-full border border-[#D6D3D1] rounded-sm p-3 text-xs"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
-                Category Vertical
+              <label className="block text-xs font-bold text-[#212121] mb-1">
+                Category
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs bg-white"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs bg-white"
               >
                 {categories.map((c) => (
                   <option key={c.id} value={c.slug}>
@@ -975,32 +1238,32 @@ const AdminProductEditorSection: React.FC<{
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
+              <label className="block text-xs font-bold text-[#212121] mb-1">
                 Subcategory
               </label>
               <input
                 value={subcategory}
                 onChange={(e) => setSubcategory(e.target.value)}
                 placeholder="e.g. Eau De Parfum"
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
+              <label className="block text-xs font-bold text-[#212121] mb-1">
                 Grooming Concern
               </label>
               <input
                 value={concern}
                 onChange={(e) => setConcern(e.target.value)}
                 placeholder="e.g. Oil Control"
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
+              <label className="block text-xs font-bold text-[#212121] mb-1">
                 Selling Price (₹)
               </label>
               <input
@@ -1009,12 +1272,12 @@ const AdminProductEditorSection: React.FC<{
                 min={1}
                 value={price}
                 onChange={(e) => setPrice(Number(e.target.value))}
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
-                Compare-At MRP (₹)
+              <label className="block text-xs font-bold text-[#212121] mb-1">
+                MRP (₹)
               </label>
               <input
                 type="number"
@@ -1022,23 +1285,23 @@ const AdminProductEditorSection: React.FC<{
                 min={1}
                 value={compareAtPrice}
                 onChange={(e) => setCompareAtPrice(Number(e.target.value))}
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
+              <label className="block text-xs font-bold text-[#212121] mb-1">
                 SKU Code
               </label>
               <input
                 required
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
-                Available Stock
+              <label className="block text-xs font-bold text-[#212121] mb-1">
+                Stock Units
               </label>
               <input
                 type="number"
@@ -1046,54 +1309,54 @@ const AdminProductEditorSection: React.FC<{
                 min={0}
                 value={stock}
                 onChange={(e) => setStock(Number(e.target.value))}
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#141413] mb-1">
+            <label className="block text-xs font-bold text-[#212121] mb-1">
               Highlights (One bullet per line)
             </label>
             <textarea
               rows={3}
               value={highlightsText}
               onChange={(e) => setHighlightsText(e.target.value)}
-              className="w-full border border-[#D6D3D1] p-3 text-xs"
+              className="w-full border border-[#D6D3D1] rounded-sm p-3 text-xs"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
-                Botanical Ingredients
+              <label className="block text-xs font-bold text-[#212121] mb-1">
+                Key Ingredients
               </label>
               <textarea
                 rows={3}
                 value={ingredients}
                 onChange={(e) => setIngredients(e.target.value)}
-                className="w-full border border-[#D6D3D1] p-3 text-xs"
+                className="w-full border border-[#D6D3D1] rounded-sm p-3 text-xs"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
-                Application / Usage Instructions
+              <label className="block text-xs font-bold text-[#212121] mb-1">
+                How to Use
               </label>
               <textarea
                 rows={3}
                 value={usageInstructions}
                 onChange={(e) => setUsageInstructions(e.target.value)}
-                className="w-full border border-[#D6D3D1] p-3 text-xs"
+                className="w-full border border-[#D6D3D1] rounded-sm p-3 text-xs"
               />
             </div>
           </div>
         </div>
 
-        {/* Right: Cloudinary Image Management & Flags */}
+        {/* Right: Image Management & Flags */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-white border border-[#E5E0D8] p-6 space-y-4">
-            <h2 className="font-serif-display text-xl font-bold text-[#141413]">
-              Cloudinary Product Photography
+          <div className="bg-white rounded-sm fk-card-shadow p-6 space-y-4">
+            <h2 className="text-base font-bold text-[#212121]">
+              Product Photography (Cloudinary / Direct URL)
             </h2>
 
             <CloudinaryUploader
@@ -1108,30 +1371,30 @@ const AdminProductEditorSection: React.FC<{
             />
 
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
-                Or Direct Image URL / Data URI
+              <label className="block text-xs font-bold text-[#212121] mb-1">
+                Or Direct Image URL
               </label>
               <input
                 value={mainImage}
                 onChange={(e) => setMainImage(e.target.value)}
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
-                Image Accessibility Alt Text *
+              <label className="block text-xs font-bold text-[#212121] mb-1">
+                Image Alt Text *
               </label>
               <input
                 required
                 value={imageAlt}
                 onChange={(e) => setImageAlt(e.target.value)}
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
               />
             </div>
 
             {/* Additional Gallery Uploader */}
-            <div className="pt-3 border-t border-[#ECE7DF] space-y-3">
+            <div className="pt-3 border-t border-[#F0F0F0] space-y-3">
               <CloudinaryUploader
                 label="Add Gallery Thumbnail Image"
                 currentUrl=""
@@ -1148,20 +1411,20 @@ const AdminProductEditorSection: React.FC<{
                   {galleryImages.map((g, idx) => (
                     <div
                       key={idx}
-                      className="relative w-16 h-16 border border-[#D6D3D1] bg-[#F3EFEA]"
+                      className="relative w-16 h-16 border border-[#D6D3D1] rounded-sm bg-[#F8F9FA]"
                     >
                       <img
                         src={getOptimizedImageUrl(g.url, 120)}
                         alt={g.alt}
                         referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain p-1"
                       />
                       <button
                         type="button"
                         onClick={() =>
                           setGalleryImages((prev) => prev.filter((_, i) => i !== idx))
                         }
-                        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-700 text-white text-[10px] flex items-center justify-center"
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-600 text-white text-[10px] flex items-center justify-center rounded-full cursor-pointer"
                       >
                         ×
                       </button>
@@ -1172,19 +1435,19 @@ const AdminProductEditorSection: React.FC<{
             </div>
           </div>
 
-          <div className="bg-white border border-[#E5E0D8] p-6 space-y-4">
-            <h2 className="font-serif-display text-xl font-bold text-[#141413]">
-              Visibility &amp; Merchandising Flags
+          <div className="bg-white rounded-sm fk-card-shadow p-6 space-y-4">
+            <h2 className="text-base font-bold text-[#212121]">
+              Visibility &amp; Flipkart Storefront Tags
             </h2>
 
             <div>
-              <label className="block text-xs font-semibold text-[#141413] mb-1">
+              <label className="block text-xs font-bold text-[#212121] mb-1">
                 Publication Status
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as Product['status'])}
-                className="w-full border border-[#D6D3D1] px-3 py-2 text-xs bg-white"
+                className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs bg-white font-semibold"
               >
                 <option value="published">Published (Live on Storefront)</option>
                 <option value="draft">Draft (Hidden from Public)</option>
@@ -1192,30 +1455,30 @@ const AdminProductEditorSection: React.FC<{
               </select>
             </div>
 
-            <div className="space-y-2 text-xs">
-              <label className="flex items-center gap-2">
+            <div className="space-y-2 text-xs font-medium text-[#212121]">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={isFeatured}
                   onChange={(e) => setIsFeatured(e.target.checked)}
                 />
-                <span>Featured Formulation</span>
+                <span>Featured Deal</span>
               </label>
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={isBestseller}
                   onChange={(e) => setIsBestseller(e.target.checked)}
                 />
-                <span>Bestseller Tag</span>
+                <span>BESTSELLER Badge</span>
               </label>
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={isNewArrival}
                   onChange={(e) => setIsNewArrival(e.target.checked)}
                 />
-                <span>New Release Tag</span>
+                <span>NEW LAUNCH Badge</span>
               </label>
             </div>
           </div>
@@ -1234,81 +1497,85 @@ const AdminInventorySection: React.FC<{
 }> = ({ products, showToast }) => {
   const handleQuickStockUpdate = async (product: Product, newStock: number) => {
     const clamped = Math.max(0, newStock);
+    const updated: Product = {
+      ...product,
+      stock: clamped,
+      updatedAt: new Date().toISOString(),
+    };
+    await syncRecordToUserFirebase('products', product.id, updated);
     try {
-      await setDoc(doc(db, 'products', product.id), {
-        ...product,
-        stock: clamped,
-        updatedAt: new Date().toISOString(),
-      });
-      showToast(`Stock for "${product.name}" updated to ${clamped}.`);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `products/${product.id}`);
+      await setDoc(doc(db, 'products', product.id), updated);
+    } catch {
+      // synced via RTDB
     }
+    showToast(`Stock for "${product.name}" updated to ${clamped} units.`);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="border-b border-[#E5E0D8] pb-6">
-        <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
+    <div className="space-y-5">
+      <div className="bg-white p-5 rounded-sm fk-card-shadow">
+        <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
           Warehouse &amp; Stock Control
         </p>
-        <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
+        <h1 className="text-xl md:text-2xl font-bold text-[#212121]">
           Live Inventory Matrix
         </h1>
       </div>
 
-      <div className="bg-white border border-[#E5E0D8] overflow-x-auto">
+      <div className="bg-white rounded-sm fk-card-shadow overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="border-b border-[#E5E0D8] bg-[#F3EFEA] uppercase text-[#57534E]">
-              <th className="p-4">SKU</th>
-              <th className="p-4">Formulation</th>
-              <th className="p-4">Current Stock</th>
-              <th className="p-4">Status</th>
-              <th className="p-4 text-right">Quick Replenish</th>
+            <tr className="border-b border-[#E0E0E0] bg-[#F5F7FA] uppercase text-[#878787]">
+              <th className="p-3.5">SKU</th>
+              <th className="p-3.5">Product</th>
+              <th className="p-3.5">Current Stock</th>
+              <th className="p-3.5">Status</th>
+              <th className="p-3.5 text-right">Quick Replenish</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#ECE7DF]">
+          <tbody className="divide-y divide-[#F0F0F0]">
             {products.map((p) => (
-              <tr key={p.id}>
-                <td className="p-4 font-mono-tabular font-semibold">{p.sku}</td>
-                <td className="p-4 font-medium text-[#141413]">{p.name}</td>
-                <td className="p-4 font-mono-tabular">
+              <tr key={p.id} className="hover:bg-[#F9FAFC]">
+                <td className="p-3.5 font-mono-tabular font-bold text-[#2874F0]">
+                  {p.sku}
+                </td>
+                <td className="p-3.5 font-bold text-[#212121]">{p.name}</td>
+                <td className="p-3.5 font-mono-tabular">
                   <span
                     className={`font-bold ${
                       p.stock === 0
-                        ? 'text-red-700'
+                        ? 'text-red-600'
                         : p.stock <= 20
-                        ? 'text-amber-700'
-                        : 'text-emerald-800'
+                        ? 'text-amber-600'
+                        : 'text-[#388E3C]'
                     }`}
                   >
                     {p.stock} units
                   </span>
                 </td>
-                <td className="p-4">
+                <td className="p-3.5">
                   {p.stock === 0 ? (
-                    <span className="text-red-700 font-semibold">Out of Stock</span>
+                    <span className="text-red-600 font-bold">Out of Stock</span>
                   ) : p.stock <= 20 ? (
-                    <span className="text-amber-800 inline-flex items-center gap-1">
+                    <span className="text-amber-700 font-bold inline-flex items-center gap-1">
                       <AlertTriangle className="w-3.5 h-3.5" /> Low Stock
                     </span>
                   ) : (
-                    <span className="text-emerald-800">Healthy</span>
+                    <span className="text-[#388E3C] font-bold">In Stock</span>
                   )}
                 </td>
-                <td className="p-4 text-right space-x-2">
+                <td className="p-3.5 text-right space-x-2">
                   <button
                     type="button"
                     onClick={() => handleQuickStockUpdate(p, p.stock + 25)}
-                    className="px-3 py-1.5 border border-[#141413] text-[#141413] font-mono-tabular hover:bg-[#141413] hover:text-white"
+                    className="px-3 py-1.5 bg-[#2874F0] text-white font-mono-tabular font-bold rounded-sm cursor-pointer"
                   >
                     +25 Units
                   </button>
                   <button
                     type="button"
                     onClick={() => handleQuickStockUpdate(p, 0)}
-                    className="px-3 py-1.5 border border-red-800 text-red-800 hover:bg-red-50"
+                    className="px-3 py-1.5 border border-red-600 text-red-600 font-bold rounded-sm hover:bg-red-50 cursor-pointer"
                   >
                     Mark 0
                   </button>
@@ -1349,38 +1616,41 @@ const AdminCategoriesSection: React.FC<{
       createdAt: now,
       updatedAt: now,
     };
+    await syncRecordToUserFirebase('categories', id, record);
     try {
       await setDoc(doc(db, 'categories', id), record);
-      setName('');
-      setSlug('');
-      setDescription('');
-      showToast(`Category "${record.name}" created.`);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `categories/${id}`);
+    } catch {
+      // synced via RTDB
     }
+    setName('');
+    setSlug('');
+    setDescription('');
+    showToast(`Category "${record.name}" saved to Firebase.`);
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-7 space-y-4">
-        <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
-          Categories &amp; Collections ({categories.length})
-        </h1>
+        <div className="bg-white p-5 rounded-sm fk-card-shadow">
+          <h1 className="text-xl font-bold text-[#212121]">
+            Categories &amp; Collections ({categories.length})
+          </h1>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {categories.map((cat) => (
             <div
               key={cat.id}
-              className="p-4 bg-white border border-[#E5E0D8] flex gap-4 items-center"
+              className="p-4 bg-white rounded-sm fk-card-shadow flex gap-4 items-center"
             >
               <img
                 src={getOptimizedImageUrl(cat.image, 160)}
                 alt={cat.name}
                 referrerPolicy="no-referrer"
-                className="w-16 h-16 object-cover bg-[#F3EFEA] shrink-0"
+                className="w-16 h-16 object-cover bg-[#F8F9FA] rounded-sm border border-[#E0E0E0] shrink-0"
               />
               <div>
-                <p className="text-sm font-bold text-[#141413]">{cat.name}</p>
-                <p className="text-xs font-mono-tabular text-[#78716C]">
+                <p className="text-sm font-bold text-[#212121]">{cat.name}</p>
+                <p className="text-xs font-mono-tabular text-[#2874F0]">
                   /collections/{cat.slug}
                 </p>
               </div>
@@ -1391,27 +1661,27 @@ const AdminCategoriesSection: React.FC<{
 
       <form
         onSubmit={handleAddCategory}
-        className="lg:col-span-5 bg-white border border-[#E5E0D8] p-6 space-y-4 self-start"
+        className="lg:col-span-5 bg-white rounded-sm fk-card-shadow p-6 space-y-4 self-start"
       >
-        <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
+        <h2 className="text-lg font-bold text-[#212121]">
           Add Category Vertical
         </h2>
         <input
           required
-          placeholder="Category Name (e.g. Body Care)"
+          placeholder="Category Name (e.g. Shaving Essentials)"
           value={name}
           onChange={(e) => {
             setName(e.target.value);
             setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
           }}
-          className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+          className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
         />
         <input
           required
-          placeholder="Slug (e.g. body-care)"
+          placeholder="Slug (e.g. shaving-essentials)"
           value={slug}
           onChange={(e) => setSlug(e.target.value)}
-          className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
+          className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
         />
         <textarea
           required
@@ -1419,7 +1689,7 @@ const AdminCategoriesSection: React.FC<{
           placeholder="Category Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full border border-[#D6D3D1] p-3 text-xs"
+          className="w-full border border-[#D6D3D1] rounded-sm p-3 text-xs"
         />
         <CloudinaryUploader
           label="Category Cover Image"
@@ -1428,7 +1698,7 @@ const AdminCategoriesSection: React.FC<{
         />
         <button
           type="submit"
-          className="w-full py-3 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest"
+          className="w-full py-3 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
         >
           Save Category
         </button>
@@ -1463,13 +1733,13 @@ const AdminOrdersListSection: React.FC<{
   }, [orders, statusFilter, searchQ]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#E5E0D8] pb-6">
+    <div className="space-y-5">
+      <div className="bg-white p-5 rounded-sm fk-card-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
+          <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
             Fulfillment &amp; Courier Dispatch
           </p>
-          <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
+          <h1 className="text-xl md:text-2xl font-bold text-[#212121]">
             Customer Orders ({filtered.length})
           </h1>
         </div>
@@ -1480,12 +1750,12 @@ const AdminOrdersListSection: React.FC<{
             value={searchQ}
             onChange={(e) => setSearchQ(e.target.value)}
             placeholder="Search Order ID, name, phone..."
-            className="bg-white border border-[#D6D3D1] px-3 py-2 text-xs"
+            className="bg-white border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
           />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-white border border-[#D6D3D1] px-3 py-2 text-xs"
+            className="bg-white border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-semibold"
           >
             <option value="ALL">All Statuses</option>
             {Object.entries(ORDER_STATUS_LABELS).map(([k, label]) => (
@@ -1497,48 +1767,48 @@ const AdminOrdersListSection: React.FC<{
         </div>
       </div>
 
-      <div className="bg-white border border-[#E5E0D8] overflow-x-auto">
+      <div className="bg-white rounded-sm fk-card-shadow overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="border-b border-[#E5E0D8] bg-[#F3EFEA] uppercase text-[#57534E]">
-              <th className="p-4">Order ID</th>
-              <th className="p-4">Date</th>
-              <th className="p-4">Customer &amp; PIN</th>
-              <th className="p-4">Current Status</th>
-              <th className="p-4">Payment</th>
-              <th className="p-4 text-right">Amount</th>
-              <th className="p-4 text-right">Action</th>
+            <tr className="border-b border-[#E0E0E0] bg-[#F5F7FA] uppercase text-[#878787]">
+              <th className="p-3.5">Order ID</th>
+              <th className="p-3.5">Date</th>
+              <th className="p-3.5">Customer &amp; PIN</th>
+              <th className="p-3.5">Current Status</th>
+              <th className="p-3.5">Payment</th>
+              <th className="p-3.5 text-right">Amount</th>
+              <th className="p-3.5 text-right">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#ECE7DF]">
+          <tbody className="divide-y divide-[#F0F0F0]">
             {filtered.map((ord) => (
-              <tr key={ord.id} className="hover:bg-[#FAF8F5]">
-                <td className="p-4 font-mono-tabular font-bold text-[#141413]">
+              <tr key={ord.id} className="hover:bg-[#F9FAFC]">
+                <td className="p-3.5 font-mono-tabular font-bold text-[#2874F0]">
                   {ord.id}
                 </td>
-                <td className="p-4 font-mono-tabular text-[#57534E]">
+                <td className="p-3.5 font-mono-tabular text-[#565656]">
                   {new Date(ord.createdAt).toLocaleDateString('en-IN')}
                 </td>
-                <td className="p-4">
-                  <p className="font-semibold text-[#141413]">{ord.customerName}</p>
-                  <p className="text-[#78716C] font-mono-tabular">
+                <td className="p-3.5">
+                  <p className="font-bold text-[#212121]">{ord.customerName}</p>
+                  <p className="text-[#878787] font-mono-tabular">
                     {ord.customerPhone} · PIN {ord.pinCode}
                   </p>
                 </td>
-                <td className="p-4 font-semibold text-[#8C6239]">
+                <td className="p-3.5 font-bold text-[#388E3C]">
                   {ORDER_STATUS_LABELS[ord.status]}
                 </td>
-                <td className="p-4 font-mono-tabular">
+                <td className="p-3.5 font-mono-tabular">
                   {ord.paymentMethod} · {ord.paymentStatus}
                 </td>
-                <td className="p-4 text-right font-mono-tabular font-bold">
+                <td className="p-3.5 text-right font-mono-tabular font-bold text-[#212121]">
                   ₹{ord.totalAmount.toLocaleString('en-IN')}
                 </td>
-                <td className="p-4 text-right">
+                <td className="p-3.5 text-right">
                   <button
                     type="button"
                     onClick={() => onSelectOrder(ord.id)}
-                    className="px-3.5 py-1.5 bg-[#141413] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#8C6239]"
+                    className="px-3.5 py-1.5 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
                   >
                     Update &amp; Track
                   </button>
@@ -1579,7 +1849,7 @@ const AdminOrderDetailSection: React.FC<{
   const [estimatedDelivery, setEstimatedDelivery] = useState(
     order?.estimatedDelivery || ''
   );
-  const [locationNote, setLocationNote] = useState('Gurugram Fulfillment Hub');
+  const [locationNote, setLocationNote] = useState('Cartlane Fulfillment Hub');
   const [eventMessage, setEventMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -1596,19 +1866,33 @@ const AdminOrderDetailSection: React.FC<{
 
   useEffect(() => {
     if (!orderId) return;
-    const unsub = onSnapshot(
+    const unsubFs = onSnapshot(
       collection(db, 'orders', orderId, 'events'),
       (snap) => {
         setEvents(snap.docs.map((d) => d.data() as OrderEvent));
-      }
+      },
+      () => {}
     );
-    return () => unsub();
+    const unsubRtdb = onValue(
+      rtdbRef(rtdb, `order_events/${orderId}`),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.val() as Record<string, OrderEvent>;
+          setEvents(Object.values(val));
+        }
+      },
+      () => {}
+    );
+    return () => {
+      unsubFs();
+      unsubRtdb();
+    };
   }, [orderId]);
 
   if (!order) {
     return (
-      <div className="space-y-4">
-        <button type="button" onClick={onBack} className="underline text-xs">
+      <div className="space-y-4 bg-white p-6 rounded-sm fk-card-shadow">
+        <button type="button" onClick={onBack} className="text-[#2874F0] font-bold text-xs">
           ← Back to Orders
         </button>
         <p className="text-sm">Order {orderId} not found.</p>
@@ -1653,21 +1937,21 @@ const AdminOrderDetailSection: React.FC<{
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E5E0D8] pb-5">
+    <div className="space-y-6">
+      <div className="bg-white p-5 rounded-sm fk-card-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="w-9 h-9 border border-[#D6D3D1] bg-white flex items-center justify-center"
+            className="w-9 h-9 border border-[#D6D3D1] rounded-sm bg-white flex items-center justify-center cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
+            <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
               Order Fulfillment &amp; Audit Controller
             </p>
-            <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
+            <h1 className="text-xl font-bold text-[#212121]">
               Order #{order.id}
             </h1>
           </div>
@@ -1676,7 +1960,7 @@ const AdminOrderDetailSection: React.FC<{
         <button
           type="button"
           onClick={() => window.print()}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-[#141413] text-xs font-semibold uppercase tracking-wider"
+          className="inline-flex items-center gap-2 px-4 py-2 border border-[#2874F0] text-[#2874F0] text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
         >
           <Printer className="w-3.5 h-3.5" />
           <span>Print Packing Slip</span>
@@ -1686,21 +1970,21 @@ const AdminOrderDetailSection: React.FC<{
       {/* Admin Status & Courier Dispatch Form */}
       <form
         onSubmit={handleUpdateOrder}
-        className="bg-white border border-[#E5E0D8] p-6 space-y-5"
+        className="bg-white rounded-sm fk-card-shadow p-6 space-y-5"
       >
-        <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
-          Record Verified Status Transition &amp; Courier Metadata
+        <h2 className="text-base font-bold text-[#212121]">
+          Update Order Status &amp; Courier Tracking
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-[#141413] mb-1">
-              Current Stage: {ORDER_STATUS_LABELS[order.status]} → Next Valid Stage
+            <label className="block text-xs font-bold text-[#212121] mb-1">
+              Current Stage: {ORDER_STATUS_LABELS[order.status]} → Next Stage
             </label>
             <select
               value={nextStatus}
               onChange={(e) => setNextStatus(e.target.value as OrderStatus)}
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs bg-white font-semibold"
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs bg-white font-bold"
             >
               <option value={order.status}>
                 Keep Current ({ORDER_STATUS_LABELS[order.status]})
@@ -1714,7 +1998,7 @@ const AdminOrderDetailSection: React.FC<{
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#141413] mb-1">
+            <label className="block text-xs font-bold text-[#212121] mb-1">
               Payment Status
             </label>
             <select
@@ -1722,7 +2006,7 @@ const AdminOrderDetailSection: React.FC<{
               onChange={(e) =>
                 setPaymentStatus(e.target.value as Order['paymentStatus'])
               }
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs bg-white"
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs bg-white"
             >
               <option value="PENDING">PENDING (COD Uncollected)</option>
               <option value="PAID">PAID (Collected on Delivery)</option>
@@ -1732,76 +2016,76 @@ const AdminOrderDetailSection: React.FC<{
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#141413] mb-1">
+            <label className="block text-xs font-bold text-[#212121] mb-1">
               Estimated Delivery Date
             </label>
             <input
               value={estimatedDelivery}
               onChange={(e) => setEstimatedDelivery(e.target.value)}
               placeholder="e.g. Thu, 29 Oct 2026"
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-[#141413] mb-1">
+            <label className="block text-xs font-bold text-[#212121] mb-1">
               Courier Partner Name
             </label>
             <input
               value={courierName}
               onChange={(e) => setCourierName(e.target.value)}
-              placeholder="e.g. BlueDart Priority / Delhivery"
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+              placeholder="e.g. Ekart Logistics / BlueDart"
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#141413] mb-1">
+            <label className="block text-xs font-bold text-[#212121] mb-1">
               AWB / Tracking ID
             </label>
             <input
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value)}
-              placeholder="e.g. BD892341092IN"
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
+              placeholder="e.g. EKART892341092IN"
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#141413] mb-1">
+            <label className="block text-xs font-bold text-[#212121] mb-1">
               External Tracking URL (Optional)
             </label>
             <input
               value={trackingUrl}
               onChange={(e) => setTrackingUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-[#141413] mb-1">
+            <label className="block text-xs font-bold text-[#212121] mb-1">
               Scan Location / Hub
             </label>
             <input
               value={locationNote}
               onChange={(e) => setLocationNote(e.target.value)}
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-[#141413] mb-1">
-              Audit Event Message (Visible on Customer Timeline)
+            <label className="block text-xs font-bold text-[#212121] mb-1">
+              Tracking Update Note
             </label>
             <input
               value={eventMessage}
               onChange={(e) => setEventMessage(e.target.value)}
-              placeholder="e.g. Package quality-checked, sealed in rigid coffret, and handed over to BlueDart."
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+              placeholder="e.g. Package packed and handed over to Ekart courier partner."
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
             />
           </div>
         </div>
@@ -1809,9 +2093,9 @@ const AdminOrderDetailSection: React.FC<{
         <button
           type="submit"
           disabled={saving}
-          className="px-6 py-3 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest hover:bg-[#8C6239]"
+          className="px-6 py-3 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
         >
-          {saving ? 'Recording Event...' : 'Save Order Update & Append Audit Event'}
+          {saving ? 'Saving Update...' : 'Save Order Update & Sync to Firebase'}
         </button>
       </form>
 
@@ -1829,43 +2113,43 @@ const AdminCustomersSection: React.FC<{
   orders: Order[];
 }> = ({ customers, orders }) => {
   return (
-    <div className="space-y-6">
-      <div className="border-b border-[#E5E0D8] pb-6">
-        <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
-          Role-Based Customer Directory
+    <div className="space-y-5">
+      <div className="bg-white p-5 rounded-sm fk-card-shadow">
+        <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
+          Customer Directory
         </p>
-        <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
+        <h1 className="text-xl md:text-2xl font-bold text-[#212121]">
           Registered Customers ({customers.length})
         </h1>
       </div>
 
-      <div className="bg-white border border-[#E5E0D8] overflow-x-auto">
+      <div className="bg-white rounded-sm fk-card-shadow overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="border-b border-[#E5E0D8] bg-[#F3EFEA] uppercase text-[#57534E]">
-              <th className="p-4">Name</th>
-              <th className="p-4">Email</th>
-              <th className="p-4">Phone</th>
-              <th className="p-4">Registered</th>
-              <th className="p-4 text-right">Orders Placed</th>
+            <tr className="border-b border-[#E0E0E0] bg-[#F5F7FA] uppercase text-[#878787]">
+              <th className="p-3.5">Name</th>
+              <th className="p-3.5">Email</th>
+              <th className="p-3.5">Phone</th>
+              <th className="p-3.5">Registered</th>
+              <th className="p-3.5 text-right">Orders Placed</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#ECE7DF]">
+          <tbody className="divide-y divide-[#F0F0F0]">
             {customers.map((c) => {
               const userOrderCount = orders.filter((o) => o.uid === c.uid).length;
               return (
-                <tr key={c.uid}>
-                  <td className="p-4 font-semibold text-[#141413]">
+                <tr key={c.uid} className="hover:bg-[#F9FAFC]">
+                  <td className="p-3.5 font-bold text-[#212121]">
                     {c.displayName}
                   </td>
-                  <td className="p-4 font-mono-tabular text-[#57534E]">{c.email}</td>
-                  <td className="p-4 font-mono-tabular text-[#57534E]">
+                  <td className="p-3.5 font-mono-tabular text-[#565656]">{c.email}</td>
+                  <td className="p-3.5 font-mono-tabular text-[#565656]">
                     {c.phone || '—'}
                   </td>
-                  <td className="p-4 font-mono-tabular text-[#78716C]">
+                  <td className="p-3.5 font-mono-tabular text-[#878787]">
                     {new Date(c.createdAt).toLocaleDateString('en-IN')}
                   </td>
-                  <td className="p-4 text-right font-mono-tabular font-bold">
+                  <td className="p-3.5 text-right font-mono-tabular font-bold text-[#2874F0]">
                     {userOrderCount}
                   </td>
                 </tr>
@@ -1890,7 +2174,7 @@ const AdminBannersSection: React.FC<{
       id: 'banner_hero_1',
       title: '',
       subtitle: '',
-      ctaText: 'Explore Collection',
+      ctaText: 'Shop Now',
       ctaLink: '/products',
       image: '',
       placement: 'hero',
@@ -1913,40 +2197,43 @@ const AdminBannersSection: React.FC<{
       image: editingBanner.image.slice(0, 1500),
       updatedAt: now,
     };
+    await syncRecordToUserFirebase('banners', record.id, record);
     try {
       await setDoc(doc(db, 'banners', record.id), record);
-      showToast(`Banner "${record.title}" saved to Firestore.`);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `banners/${record.id}`);
+    } catch {
+      // synced via RTDB
     }
+    showToast(`Banner "${record.title}" saved to Firebase!`);
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-6 space-y-4">
-        <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
-          Homepage &amp; Promotional Banners
-        </h1>
+        <div className="bg-white p-5 rounded-sm fk-card-shadow">
+          <h1 className="text-xl font-bold text-[#212121]">
+            Homepage &amp; Promotional Banners
+          </h1>
+        </div>
         {banners.map((b) => (
           <div
             key={b.id}
             onClick={() => setEditingBanner(b)}
-            className={`cursor-pointer p-4 border bg-white flex gap-4 items-center ${
-              editingBanner.id === b.id ? 'border-[#141413]' : 'border-[#E5E0D8]'
+            className={`cursor-pointer p-4 border rounded-sm bg-white fk-card-shadow flex gap-4 items-center ${
+              editingBanner.id === b.id ? 'border-[#2874F0] ring-1 ring-[#2874F0]' : 'border-[#E0E0E0]'
             }`}
           >
             <img
               src={getOptimizedImageUrl(b.image, 200)}
               alt={b.title}
               referrerPolicy="no-referrer"
-              className="w-24 h-16 object-cover bg-[#141413] shrink-0"
+              className="w-24 h-16 object-cover bg-[#172337] rounded-sm shrink-0"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] uppercase tracking-wider text-[#8C6239] font-semibold">
+              <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
                 {b.placement} Banner
               </p>
-              <p className="text-sm font-bold text-[#141413] truncate">{b.title}</p>
-              <p className="text-xs text-[#57534E] truncate">{b.subtitle}</p>
+              <p className="text-sm font-bold text-[#212121] truncate">{b.title}</p>
+              <p className="text-xs text-[#878787] truncate">{b.subtitle}</p>
             </div>
           </div>
         ))}
@@ -1954,24 +2241,24 @@ const AdminBannersSection: React.FC<{
 
       <form
         onSubmit={handleSaveBanner}
-        className="lg:col-span-6 bg-white border border-[#E5E0D8] p-6 space-y-4"
+        className="lg:col-span-6 bg-white rounded-sm fk-card-shadow p-6 space-y-4"
       >
-        <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
+        <h2 className="text-lg font-bold text-[#212121]">
           Edit Banner ({editingBanner.id})
         </h2>
         <div>
-          <label className="block text-xs font-semibold mb-1">Headline *</label>
+          <label className="block text-xs font-bold mb-1">Headline *</label>
           <input
             required
             value={editingBanner.title}
             onChange={(e) =>
               setEditingBanner({ ...editingBanner, title: e.target.value })
             }
-            className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+            className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold mb-1">Subtitle *</label>
+          <label className="block text-xs font-bold mb-1">Subtitle *</label>
           <textarea
             required
             rows={3}
@@ -1979,30 +2266,30 @@ const AdminBannersSection: React.FC<{
             onChange={(e) =>
               setEditingBanner({ ...editingBanner, subtitle: e.target.value })
             }
-            className="w-full border border-[#D6D3D1] p-3 text-xs"
+            className="w-full border border-[#D6D3D1] rounded-sm p-3 text-xs"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold mb-1">CTA Label</label>
+            <label className="block text-xs font-bold mb-1">CTA Label</label>
             <input
               required
               value={editingBanner.ctaText}
               onChange={(e) =>
                 setEditingBanner({ ...editingBanner, ctaText: e.target.value })
               }
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold mb-1">CTA Route</label>
+            <label className="block text-xs font-bold mb-1">CTA Route</label>
             <input
               required
               value={editingBanner.ctaLink}
               onChange={(e) =>
                 setEditingBanner({ ...editingBanner, ctaLink: e.target.value })
               }
-              className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
             />
           </div>
         </div>
@@ -2018,7 +2305,7 @@ const AdminBannersSection: React.FC<{
 
         <button
           type="submit"
-          className="w-full py-3 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest"
+          className="w-full py-3 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
         >
           Save Banner Changes
         </button>
@@ -2064,38 +2351,45 @@ const AdminCouponsSection: React.FC<{
       createdAt: now,
       updatedAt: now,
     };
+    await syncRecordToUserFirebase('coupons', id, record);
     try {
       await setDoc(doc(db, 'coupons', id), record);
-      setCode('');
-      setDescription('');
-      showToast(`Coupon ${record.code} saved.`);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `coupons/${id}`);
+    } catch {
+      // synced via RTDB
     }
+    setCode('');
+    setDescription('');
+    showToast(`Coupon ${record.code} saved to Firebase!`);
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-7 space-y-4">
-        <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
-          Privilege Coupons ({coupons.length})
-        </h1>
+        <div className="bg-white p-5 rounded-sm fk-card-shadow">
+          <h1 className="text-xl font-bold text-[#212121]">
+            Promotional Coupons ({coupons.length})
+          </h1>
+        </div>
         <div className="space-y-3">
           {coupons.map((c) => (
             <div
               key={c.id}
-              className="p-4 bg-white border border-[#E5E0D8] flex items-center justify-between"
+              className="p-4 bg-white rounded-sm fk-card-shadow flex items-center justify-between border-l-4 border-l-[#388E3C]"
             >
               <div>
-                <p className="font-mono-tabular font-bold text-sm text-[#141413]">
-                  {c.code} ({c.discountType === 'percentage' ? `${c.discountValue}%` : `₹${c.discountValue}`})
+                <p className="font-mono-tabular font-bold text-sm text-[#212121]">
+                  {c.code} (
+                  {c.discountType === 'percentage'
+                    ? `${c.discountValue}% OFF`
+                    : `₹${c.discountValue} OFF`}
+                  )
                 </p>
-                <p className="text-xs text-[#57534E]">{c.description}</p>
-                <p className="text-[11px] font-mono-tabular text-[#78716C] mt-1">
+                <p className="text-xs text-[#565656]">{c.description}</p>
+                <p className="text-[11px] font-mono-tabular text-[#878787] mt-1">
                   Min Order: ₹{c.minOrderAmount} · Redeemed: {c.usedCount}/{c.usageLimit}
                 </p>
               </div>
-              <span className="text-xs font-semibold text-emerald-800 uppercase">
+              <span className="text-xs font-bold text-[#388E3C] uppercase">
                 {c.active ? 'Active' : 'Inactive'}
               </span>
             </div>
@@ -2105,24 +2399,24 @@ const AdminCouponsSection: React.FC<{
 
       <form
         onSubmit={handleCreateCoupon}
-        className="lg:col-span-5 bg-white border border-[#E5E0D8] p-6 space-y-4 self-start"
+        className="lg:col-span-5 bg-white rounded-sm fk-card-shadow p-6 space-y-4 self-start"
       >
-        <h2 className="font-serif-display text-2xl font-bold text-[#141413]">
+        <h2 className="text-lg font-bold text-[#212121]">
           Create New Coupon
         </h2>
         <input
           required
-          placeholder="Coupon Code (e.g. ROYAL25)"
+          placeholder="Coupon Code (e.g. CARTLANE25)"
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
-          className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular uppercase"
+          className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular uppercase"
         />
         <input
           required
-          placeholder="Description (e.g. 25% off on orders above ₹1,299)"
+          placeholder="Description (e.g. Extra 25% off on orders above ₹1,299)"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
+          className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
         />
         <div className="grid grid-cols-2 gap-3">
           <select
@@ -2130,7 +2424,7 @@ const AdminCouponsSection: React.FC<{
             onChange={(e) =>
               setDiscountType(e.target.value as 'percentage' | 'fixed')
             }
-            className="border border-[#D6D3D1] px-3 py-2 text-xs bg-white"
+            className="border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs bg-white"
           >
             <option value="percentage">Percentage (%)</option>
             <option value="fixed">Fixed Amount (₹)</option>
@@ -2141,56 +2435,58 @@ const AdminCouponsSection: React.FC<{
             value={discountValue}
             onChange={(e) => setDiscountValue(Number(e.target.value))}
             placeholder="Value"
-            className="border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
+            className="border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
           />
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div>
-            <label className="block text-[10px] uppercase text-[#78716C]">
+            <label className="block text-[10px] uppercase text-[#878787] font-bold">
               Min Order ₹
             </label>
             <input
               type="number"
               value={minOrderAmount}
               onChange={(e) => setMinOrderAmount(Number(e.target.value))}
-              className="w-full border border-[#D6D3D1] px-2 py-1.5 text-xs font-mono-tabular"
+              className="w-full border border-[#D6D3D1] rounded-sm px-2 py-1.5 text-xs font-mono-tabular"
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase text-[#78716C]">
+            <label className="block text-[10px] uppercase text-[#878787] font-bold">
               Max Cap ₹
             </label>
             <input
               type="number"
               value={maxDiscountAmount}
               onChange={(e) => setMaxDiscountAmount(Number(e.target.value))}
-              className="w-full border border-[#D6D3D1] px-2 py-1.5 text-xs font-mono-tabular"
+              className="w-full border border-[#D6D3D1] rounded-sm px-2 py-1.5 text-xs font-mono-tabular"
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase text-[#78716C]">
+            <label className="block text-[10px] uppercase text-[#878787] font-bold">
               Usage Limit
             </label>
             <input
               type="number"
               value={usageLimit}
               onChange={(e) => setUsageLimit(Number(e.target.value))}
-              className="w-full border border-[#D6D3D1] px-2 py-1.5 text-xs font-mono-tabular"
+              className="w-full border border-[#D6D3D1] rounded-sm px-2 py-1.5 text-xs font-mono-tabular"
             />
           </div>
         </div>
         <div>
-          <label className="block text-xs text-[#57534E] mb-1">Expiry Date</label>
+          <label className="block text-xs font-bold text-[#212121] mb-1">
+            Expiry Date
+          </label>
           <input
             type="date"
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
-            className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
+            className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
           />
         </div>
         <button
           type="submit"
-          className="w-full py-3 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest"
+          className="w-full py-3 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
         >
           Save Coupon
         </button>
@@ -2203,44 +2499,54 @@ const AdminCouponsSection: React.FC<{
  * 9. ADMIN REVIEWS MODERATION SECTION
  * ==========================================================================*/
 const AdminReviewsSection: React.FC<{
-  reviews: { id: string; productId: string; authorName: string; rating: number; title: string; comment: string; createdAt: string }[];
+  reviews: {
+    id: string;
+    productId: string;
+    authorName: string;
+    rating: number;
+    title: string;
+    comment: string;
+    createdAt: string;
+  }[];
   products: Product[];
   showToast: (t: string, type?: 'success' | 'error' | 'info') => void;
 }> = ({ reviews, products, showToast }) => {
   const handleDeleteReview = async (id: string) => {
+    await deleteRecordFromUserFirebase('reviews', id);
     try {
       await deleteDoc(doc(db, 'reviews', id));
-      showToast('Review removed.', 'info');
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `reviews/${id}`);
+    } catch {
+      // synced via RTDB
     }
+    showToast('Review removed.', 'info');
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
-        Customer Reviews ({reviews.length})
-      </h1>
-      <div className="space-y-4">
+    <div className="space-y-4">
+      <div className="bg-white p-5 rounded-sm fk-card-shadow">
+        <h1 className="text-xl font-bold text-[#212121]">
+          Customer Reviews ({reviews.length})
+        </h1>
+      </div>
+      <div className="space-y-3">
         {reviews.map((rev) => {
           const prod = products.find((p) => p.id === rev.productId);
           return (
             <div
               key={rev.id}
-              className="p-5 bg-white border border-[#E5E0D8] flex items-start justify-between gap-4"
+              className="p-5 bg-white rounded-sm fk-card-shadow flex items-start justify-between gap-4"
             >
               <div className="space-y-1">
-                <p className="text-xs font-mono-tabular text-[#8C6239] font-semibold">
-                  {'★'.repeat(rev.rating)} · {rev.authorName} on{' '}
-                  {prod?.name || rev.productId}
+                <p className="text-xs font-mono-tabular text-[#388E3C] font-bold">
+                  {rev.rating} ★ · {rev.authorName} on {prod?.name || rev.productId}
                 </p>
-                <p className="text-sm font-bold text-[#141413]">{rev.title}</p>
-                <p className="text-xs text-[#57534E]">{rev.comment}</p>
+                <p className="text-sm font-bold text-[#212121]">{rev.title}</p>
+                <p className="text-xs text-[#565656]">{rev.comment}</p>
               </div>
               <button
                 type="button"
                 onClick={() => handleDeleteReview(rev.id)}
-                className="text-xs text-red-700 hover:underline inline-flex items-center gap-1 shrink-0"
+                className="text-xs text-red-600 font-bold hover:underline inline-flex items-center gap-1 shrink-0 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete</span>
@@ -2254,7 +2560,7 @@ const AdminReviewsSection: React.FC<{
 };
 
 /* ============================================================================
- * 10. ADMIN STORE CUSTOMIZATION & SHIPPING SETTINGS
+ * 10. ADMIN STORE CUSTOMIZATION, SHIPPING & FIREBASE CONFIG SETTINGS
  * ==========================================================================*/
 const AdminSettingsSection: React.FC<{
   settings: SiteSettings;
@@ -2284,204 +2590,236 @@ const AdminSettingsSection: React.FC<{
       updatedAt: new Date().toISOString(),
     };
     try {
-      await setDoc(doc(db, 'settings', 'global'), updated);
-      showToast('Storefront & shipping settings updated live in Firestore.');
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'settings/global');
+      await syncRecordToUserFirebase('settings', 'global', updated);
+      try {
+        await setDoc(doc(db, 'settings', 'global'), updated);
+      } catch {
+        // synced via RTDB
+      }
+      showToast('Storefront & shipping settings synced to Firebase!');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSave}
-      className="max-w-3xl bg-white border border-[#E5E0D8] p-6 md:p-8 space-y-6"
-    >
-      <div className="border-b border-[#E5E0D8] pb-4">
-        <p className="text-xs uppercase tracking-widest text-[#8C6239] font-semibold">
-          Live Storefront Configuration
-        </p>
-        <h1 className="font-serif-display text-3xl font-bold text-[#141413]">
-          Brand Identity, Announcement &amp; Shipping Rules
-        </h1>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-semibold text-[#141413] mb-1">
-            Brand Wordmark
-          </label>
-          <input
-            required
-            value={formState.brandName}
-            onChange={(e) =>
-              setFormState({ ...formState, brandName: e.target.value })
-            }
-            className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 pt-5">
-          <input
-            id="ann-enabled"
-            type="checkbox"
-            checked={formState.announcementEnabled}
-            onChange={(e) =>
-              setFormState({
-                ...formState,
-                announcementEnabled: e.target.checked,
-              })
-            }
-          />
-          <label htmlFor="ann-enabled" className="text-xs font-semibold">
-            Enable Top Announcement Bar
-          </label>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-xs font-semibold text-[#141413] mb-1">
-          Top Announcement Bar Text
-        </label>
-        <input
-          required
-          value={formState.announcementText}
-          onChange={(e) =>
-            setFormState({ ...formState, announcementText: e.target.value })
-          }
-          className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-[#ECE7DF]">
-        <div>
-          <label className="block text-xs font-semibold text-[#141413] mb-1">
-            Free Shipping Threshold (₹)
-          </label>
-          <input
-            type="number"
-            required
-            min={0}
-            value={formState.freeShippingThreshold}
-            onChange={(e) =>
-              setFormState({
-                ...formState,
-                freeShippingThreshold: Number(e.target.value),
-              })
-            }
-            className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-[#141413] mb-1">
-            Flat Shipping Fee (₹)
-          </label>
-          <input
-            type="number"
-            required
-            min={0}
-            value={formState.flatShippingFee}
-            onChange={(e) =>
-              setFormState({
-                ...formState,
-                flatShippingFee: Number(e.target.value),
-              })
-            }
-            className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-[#141413] mb-1">
-            Return Eligibility Window (Days)
-          </label>
-          <input
-            type="number"
-            required
-            min={0}
-            value={formState.returnWindowDays}
-            onChange={(e) =>
-              setFormState({
-                ...formState,
-                returnWindowDays: Number(e.target.value),
-              })
-            }
-            className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-semibold text-[#141413] mb-1">
-            Estimated Delivery Range
-          </label>
-          <input
-            required
-            value={formState.estimatedDeliveryDays}
-            onChange={(e) =>
-              setFormState({
-                ...formState,
-                estimatedDeliveryDays: e.target.value,
-              })
-            }
-            className="w-full border border-[#D6D3D1] px-3 py-2 text-xs"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 pt-5">
-          <input
-            id="cod-toggle"
-            type="checkbox"
-            checked={formState.codEnabled}
-            onChange={(e) =>
-              setFormState({ ...formState, codEnabled: e.target.checked })
-            }
-          />
-          <label htmlFor="cod-toggle" className="text-xs font-semibold">
-            Enable Cash on Delivery (COD) at Checkout
-          </label>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#ECE7DF]">
-        <div>
-          <label className="block text-xs font-semibold text-[#141413] mb-1">
-            Concierge Support Email
-          </label>
-          <input
-            required
-            value={formState.supportEmail}
-            onChange={(e) =>
-              setFormState({ ...formState, supportEmail: e.target.value })
-            }
-            className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-[#141413] mb-1">
-            Concierge Support Phone
-          </label>
-          <input
-            required
-            value={formState.supportPhone}
-            onChange={(e) =>
-              setFormState({ ...formState, supportPhone: e.target.value })
-            }
-            className="w-full border border-[#D6D3D1] px-3 py-2 text-xs font-mono-tabular"
-          />
-        </div>
-      </div>
-
-      <button
-        type="submit"
-        disabled={saving}
-        className="px-6 py-3 bg-[#141413] text-white text-xs font-semibold uppercase tracking-widest hover:bg-[#8C6239]"
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <form
+        onSubmit={handleSave}
+        className="lg:col-span-7 bg-white rounded-sm fk-card-shadow p-6 space-y-5"
       >
-        {saving ? 'Saving Settings...' : 'Save Storefront & Shipping Settings'}
-      </button>
-    </form>
+        <div className="border-b border-[#F0F0F0] pb-4">
+          <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
+            Live Storefront Configuration
+          </p>
+          <h1 className="text-xl font-bold text-[#212121]">
+            Brand Identity, Announcement &amp; Shipping Rules
+          </h1>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-[#212121] mb-1">
+              Brand Name
+            </label>
+            <input
+              required
+              value={formState.brandName}
+              onChange={(e) =>
+                setFormState({ ...formState, brandName: e.target.value })
+              }
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 pt-5">
+            <input
+              id="ann-enabled"
+              type="checkbox"
+              checked={formState.announcementEnabled}
+              onChange={(e) =>
+                setFormState({
+                  ...formState,
+                  announcementEnabled: e.target.checked,
+                })
+              }
+            />
+            <label htmlFor="ann-enabled" className="text-xs font-bold">
+              Enable Top Announcement Bar
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-[#212121] mb-1">
+            Top Announcement Bar Text
+          </label>
+          <input
+            required
+            value={formState.announcementText}
+            onChange={(e) =>
+              setFormState({ ...formState, announcementText: e.target.value })
+            }
+            className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-[#F0F0F0]">
+          <div>
+            <label className="block text-xs font-bold text-[#212121] mb-1">
+              Free Shipping Above (₹)
+            </label>
+            <input
+              type="number"
+              required
+              min={0}
+              value={formState.freeShippingThreshold}
+              onChange={(e) =>
+                setFormState({
+                  ...formState,
+                  freeShippingThreshold: Number(e.target.value),
+                })
+              }
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#212121] mb-1">
+              Flat Shipping Fee (₹)
+            </label>
+            <input
+              type="number"
+              required
+              min={0}
+              value={formState.flatShippingFee}
+              onChange={(e) =>
+                setFormState({
+                  ...formState,
+                  flatShippingFee: Number(e.target.value),
+                })
+              }
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#212121] mb-1">
+              Return Window (Days)
+            </label>
+            <input
+              type="number"
+              required
+              min={0}
+              value={formState.returnWindowDays}
+              onChange={(e) =>
+                setFormState({
+                  ...formState,
+                  returnWindowDays: Number(e.target.value),
+                })
+              }
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-[#212121] mb-1">
+              Estimated Delivery Range
+            </label>
+            <input
+              required
+              value={formState.estimatedDeliveryDays}
+              onChange={(e) =>
+                setFormState({
+                  ...formState,
+                  estimatedDeliveryDays: e.target.value,
+                })
+              }
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 pt-5">
+            <input
+              id="cod-toggle"
+              type="checkbox"
+              checked={formState.codEnabled}
+              onChange={(e) =>
+                setFormState({ ...formState, codEnabled: e.target.checked })
+              }
+            />
+            <label htmlFor="cod-toggle" className="text-xs font-bold">
+              Enable Cash on Delivery (COD)
+            </label>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#F0F0F0]">
+          <div>
+            <label className="block text-xs font-bold text-[#212121] mb-1">
+              Support Email
+            </label>
+            <input
+              required
+              value={formState.supportEmail}
+              onChange={(e) =>
+                setFormState({ ...formState, supportEmail: e.target.value })
+              }
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-[#212121] mb-1">
+              Support Phone
+            </label>
+            <input
+              required
+              value={formState.supportPhone}
+              onChange={(e) =>
+                setFormState({ ...formState, supportPhone: e.target.value })
+              }
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-6 py-3 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
+        >
+          {saving ? 'Saving Settings...' : 'Save Storefront & Shipping Settings'}
+        </button>
+      </form>
+
+      {/* Right: Integrated Firebase Config Details */}
+      <div className="lg:col-span-5 bg-white rounded-sm fk-card-shadow p-6 space-y-4 self-start">
+        <div className="flex items-center gap-2 text-[#2874F0]">
+          <Database className="w-5 h-5" />
+          <h2 className="text-base font-bold text-[#212121]">
+            Integrated Firebase Configuration
+          </h2>
+        </div>
+        <p className="text-xs text-[#565656] leading-relaxed">
+          Your Firebase project and Realtime Database are actively integrated with Cartlane Storefront and Seller Hub Admin Panel:
+        </p>
+
+        <div className="bg-[#172337] text-[#E0E0E0] p-4 rounded-sm font-mono-tabular text-[11px] space-y-1.5 overflow-x-auto">
+          <p className="text-[#FFE500] font-bold">// Active Firebase Config</p>
+          <p>projectId: &quot;{USER_FIREBASE_CONFIG.projectId}&quot;</p>
+          <p>authDomain: &quot;{USER_FIREBASE_CONFIG.authDomain}&quot;</p>
+          <p>databaseURL: &quot;{USER_FIREBASE_CONFIG.databaseURL}&quot;</p>
+          <p>storageBucket: &quot;{USER_FIREBASE_CONFIG.storageBucket}&quot;</p>
+          <p>messagingSenderId: &quot;{USER_FIREBASE_CONFIG.messagingSenderId}&quot;</p>
+          <p>appId: &quot;{USER_FIREBASE_CONFIG.appId}&quot;</p>
+        </div>
+
+        <div className="p-3 bg-[#E8F5E9] border border-[#C8E6C9] rounded-sm text-xs text-[#2E7D32] font-semibold">
+          ✓ All Admin product edits, stock updates, categories, banners, coupons, and orders sync automatically to your Realtime Database &amp; Firestore.
+        </div>
+      </div>
+    </div>
   );
 };

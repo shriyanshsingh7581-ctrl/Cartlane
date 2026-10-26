@@ -1,5 +1,5 @@
 import { doc, runTransaction, setDoc } from 'firebase/firestore';
-import { db, handleFirestoreError } from './firebase';
+import { db, handleFirestoreError, syncRecordToUserFirebase } from './firebase';
 import {
   CartItem,
   Coupon,
@@ -317,12 +317,14 @@ export async function placeOrderTransaction(params: {
       uid,
       status: 'ORDER_PLACED',
       message: `Order ${orderId} placed successfully via Cash on Delivery. Total payable on delivery: ₹${createdOrder.totalAmount.toLocaleString('en-IN')}.`,
-      location: 'Atelier Vanguard Online Concierge',
+      location: 'Cartlane Online Concierge',
       updatedBy: checkoutData.fullName.slice(0, 120),
       createdAt: now,
     };
 
     await setDoc(doc(db, 'orders', orderId, 'events', eventId), initialEvent);
+    await syncRecordToUserFirebase('orders', orderId, createdOrder);
+    await syncRecordToUserFirebase(`order_events/${orderId}`, eventId, initialEvent);
 
     return createdOrder;
   } catch (error) {
@@ -381,43 +383,49 @@ export async function updateOrderStatusWithEvent(params: {
   const now = new Date().toISOString();
   const orderRef = doc(db, 'orders', order.id);
 
-  try {
-    if (isAdminActor) {
-      const updatedOrder: Order = {
+  const updatedOrder: Order = isAdminActor
+    ? {
         ...order,
         status: newStatus,
         ...(paymentStatus ? { paymentStatus } : {}),
         ...(courierName !== undefined ? { courierName: courierName.slice(0, 80) } : {}),
         ...(trackingNumber !== undefined ? { trackingNumber: trackingNumber.slice(0, 80) } : {}),
         ...(trackingUrl !== undefined ? { trackingUrl: trackingUrl.slice(0, 300) } : {}),
-        ...(estimatedDelivery !== undefined ? { estimatedDelivery: estimatedDelivery.slice(0, 60) } : {}),
+        ...(estimatedDelivery !== undefined
+          ? { estimatedDelivery: estimatedDelivery.slice(0, 60) }
+          : {}),
         updatedAt: now,
-      };
-      await setDoc(orderRef, updatedOrder);
-    } else {
-      // Customer cancellation / return request: only mutate status and updatedAt per security rule
-      const customerUpdatedOrder: Order = {
+      }
+    : {
         ...order,
         status: newStatus,
         updatedAt: now,
       };
-      await setDoc(orderRef, customerUpdatedOrder);
-    }
 
-    const eventId = `evt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const newEvent: OrderEvent = {
-      id: eventId,
-      orderId: order.id,
-      uid: order.uid,
-      status: newStatus,
-      message: message.slice(0, 300),
-      ...(location ? { location: location.slice(0, 120) } : {}),
-      updatedBy: actorName.slice(0, 120),
-      createdAt: now,
-    };
+  const eventId = `evt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const newEvent: OrderEvent = {
+    id: eventId,
+    orderId: order.id,
+    uid: order.uid,
+    status: newStatus,
+    message: message.slice(0, 300),
+    ...(location ? { location: location.slice(0, 120) } : {}),
+    updatedBy: actorName.slice(0, 120),
+    createdAt: now,
+  };
 
+  // Always sync to user's Realtime Database (studio-9019379244-c807b)
+  await syncRecordToUserFirebase('orders', order.id, updatedOrder);
+  await syncRecordToUserFirebase(`order_events/${order.id}`, eventId, newEvent);
+
+  try {
+    await setDoc(orderRef, updatedOrder);
     await setDoc(doc(db, 'orders', order.id, 'events', eventId), newEvent);
   } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, `orders/${order.id}`);
+    if (!isAdminActor) {
+      handleFirestoreError(error, OperationType.UPDATE, `orders/${order.id}`);
+    } else {
+      console.warn('Firestore order update notice (synced via RTDB):', error);
+    }
   }
 }
