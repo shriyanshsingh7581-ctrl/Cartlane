@@ -1,0 +1,6 @@
+{
+  "name": "Atelier Vanguard — Men's Grooming & Apothecary",
+  "description": "Luxury men's grooming, fine fragrances, botanical beard care, and clinical skincare storefront with full administrator control, Cloudinary media management, and real-time order tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,331 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private customer profile document stored at /users/{uid}",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "photoURL": { "type": "string", "maxLength": 500 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "email", "createdAt", "updatedAt"]
+    },
+    "Address": {
+      "title": "Address",
+      "description": "Saved customer shipping address stored at /users/{uid}/addresses/{addressId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fullName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 160 },
+        "phone": { "type": "string", "minLength": 10, "maxLength": 15 },
+        "house": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "street": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "city": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "state": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "pinCode": { "type": "string", "minLength": 6, "maxLength": 6, "pattern": "^[0-9]{6}$" },
+        "landmark": { "type": "string", "maxLength": 160 },
+        "isDefault": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "uid", "fullName", "phone", "house", "street", "city", "state", "pinCode", "isDefault", "createdAt", "updatedAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Catalog product item stored at /products/{productId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "slug": { "type": "string", "maxLength": 140, "pattern": "^[a-z0-9\\-]+$" },
+        "name": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "shortDescription": { "type": "string", "minLength": 5, "maxLength": 280 },
+        "description": { "type": "string", "minLength": 10, "maxLength": 4000 },
+        "category": { "type": "string", "maxLength": 60 },
+        "subcategory": { "type": "string", "maxLength": 60 },
+        "concern": { "type": "string", "maxLength": 60 },
+        "price": { "type": "number" },
+        "compareAtPrice": { "type": "number" },
+        "discountPercent": { "type": "number" },
+        "sku": { "type": "string", "maxLength": 64 },
+        "stock": { "type": "number" },
+        "mainImage": { "type": "string", "maxLength": 1500 },
+        "mainImagePublicId": { "type": "string", "maxLength": 240 },
+        "imageAlt": { "type": "string", "maxLength": 180 },
+        "galleryImages": { "type": "array" },
+        "variants": { "type": "array" },
+        "highlights": { "type": "array" },
+        "ingredients": { "type": "string", "maxLength": 1500 },
+        "usageInstructions": { "type": "string", "maxLength": 1500 },
+        "ratingAvg": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "isFeatured": { "type": "boolean" },
+        "isBestseller": { "type": "boolean" },
+        "isNewArrival": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["published", "draft", "archived"] },
+        "seoTitle": { "type": "string", "maxLength": 120 },
+        "seoDescription": { "type": "string", "maxLength": 240 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "slug", "name", "shortDescription", "description", "category", "price", "compareAtPrice", "discountPercent", "sku", "stock", "mainImage", "imageAlt", "status", "createdAt", "updatedAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product category stored at /categories/{categoryId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "slug": { "type": "string", "maxLength": 100 },
+        "name": { "type": "string", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 400 },
+        "image": { "type": "string", "maxLength": 1500 },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "slug", "name", "description", "image", "order", "createdAt", "updatedAt"]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "Promotional banner stored at /banners/{bannerId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "maxLength": 140 },
+        "subtitle": { "type": "string", "maxLength": 280 },
+        "ctaText": { "type": "string", "maxLength": 50 },
+        "ctaLink": { "type": "string", "maxLength": 200 },
+        "image": { "type": "string", "maxLength": 1500 },
+        "publicId": { "type": "string", "maxLength": 240 },
+        "placement": { "type": "string", "enum": ["hero", "promo", "collection"] },
+        "active": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "subtitle", "ctaText", "ctaLink", "image", "placement", "active", "order", "createdAt", "updatedAt"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "Promotional coupon stored at /coupons/{couponId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "code": { "type": "string", "maxLength": 32, "pattern": "^[A-Z0-9_\\-]+$" },
+        "description": { "type": "string", "maxLength": 200 },
+        "discountType": { "type": "string", "enum": ["percentage", "fixed"] },
+        "discountValue": { "type": "number" },
+        "minOrderAmount": { "type": "number" },
+        "maxDiscountAmount": { "type": "number" },
+        "usageLimit": { "type": "number" },
+        "usedCount": { "type": "number" },
+        "active": { "type": "boolean" },
+        "expiresAt": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "code", "description", "discountType", "discountValue", "minOrderAmount", "maxDiscountAmount", "usageLimit", "usedCount", "active", "expiresAt", "createdAt", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer order record stored at /orders/{orderId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerEmail": { "type": "string", "maxLength": 160 },
+        "customerPhone": { "type": "string", "maxLength": 20 },
+        "shippingAddress": { "type": "string", "maxLength": 500 },
+        "pinCode": { "type": "string", "maxLength": 10 },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "discountAmount": { "type": "number" },
+        "couponCode": { "type": "string", "maxLength": 32 },
+        "shippingFee": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["COD"] },
+        "paymentStatus": { "type": "string", "enum": ["PENDING", "PAID", "REFUNDED", "FAILED"] },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ORDER_PLACED",
+            "ORDER_CONFIRMED",
+            "PROCESSING",
+            "PACKED",
+            "SHIPPED",
+            "OUT_FOR_DELIVERY",
+            "DELIVERED",
+            "CANCELLATION_REQUESTED",
+            "CANCELLED",
+            "DELIVERY_ATTEMPT_FAILED",
+            "DELAYED",
+            "RETURN_REQUESTED",
+            "RETURN_APPROVED",
+            "RETURN_PICKED_UP",
+            "REFUND_PROCESSING",
+            "REFUNDED",
+            "RETURNED"
+          ]
+        },
+        "courierName": { "type": "string", "maxLength": 80 },
+        "trackingNumber": { "type": "string", "maxLength": 80 },
+        "trackingUrl": { "type": "string", "maxLength": 300 },
+        "estimatedDelivery": { "type": "string", "maxLength": 60 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "uid", "customerName", "customerEmail", "customerPhone", "shippingAddress", "pinCode", "items", "subtotal", "discountAmount", "shippingFee", "totalAmount", "paymentMethod", "paymentStatus", "status", "createdAt", "updatedAt"]
+    },
+    "OrderEvent": {
+      "title": "OrderEvent",
+      "description": "Chronological order tracking event stored at /orders/{orderId}/events/{eventId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "status": { "type": "string", "maxLength": 50 },
+        "message": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "location": { "type": "string", "maxLength": 120 },
+        "updatedBy": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "orderId", "uid", "status", "message", "updatedBy", "createdAt"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Verified customer product review stored at /reviews/{reviewId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "rating": { "type": "number" },
+        "title": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "comment": { "type": "string", "minLength": 5, "maxLength": 1000 },
+        "verifiedPurchase": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "productId", "uid", "authorName", "rating", "title", "comment", "verifiedPurchase", "createdAt"]
+    },
+    "WishlistItem": {
+      "title": "WishlistItem",
+      "description": "Saved wishlist item stored at /users/{uid}/wishlist/{productId}",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["productId", "uid", "createdAt"]
+    },
+    "CartDoc": {
+      "title": "CartDoc",
+      "description": "Persistent customer shopping cart stored at /carts/{uid}",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "items": { "type": "array" },
+        "couponCode": { "type": "string", "maxLength": 32 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "items", "updatedAt"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Global storefront and shipping settings stored at /settings/{settingId}",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "brandName": { "type": "string", "maxLength": 80 },
+        "announcementText": { "type": "string", "maxLength": 240 },
+        "announcementEnabled": { "type": "boolean" },
+        "primaryColor": { "type": "string", "maxLength": 20 },
+        "accentColor": { "type": "string", "maxLength": 20 },
+        "freeShippingThreshold": { "type": "number" },
+        "flatShippingFee": { "type": "number" },
+        "codEnabled": { "type": "boolean" },
+        "estimatedDeliveryDays": { "type": "string", "maxLength": 60 },
+        "returnWindowDays": { "type": "number" },
+        "supportEmail": { "type": "string", "maxLength": 120 },
+        "supportPhone": { "type": "string", "maxLength": 30 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "brandName", "announcementText", "announcementEnabled", "freeShippingThreshold", "flatShippingFee", "codEnabled", "estimatedDeliveryDays", "returnWindowDays", "supportEmail", "supportPhone", "updatedAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Administrator allowlist document stored at /admins/{uid}",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 160 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private customer profiles accessible only to owner or admin"
+    },
+    "/users/{uid}/addresses/{addressId}": {
+      "schema": { "$ref": "#/entities/Address" },
+      "description": "Customer saved shipping addresses"
+    },
+    "/users/{uid}/wishlist/{productId}": {
+      "schema": { "$ref": "#/entities/WishlistItem" },
+      "description": "Customer saved wishlist products"
+    },
+    "/carts/{uid}": {
+      "schema": { "$ref": "#/entities/CartDoc" },
+      "description": "Customer persistent shopping cart"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Storefront product catalog items"
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Product categories"
+    },
+    "/banners/{bannerId}": {
+      "schema": { "$ref": "#/entities/Banner" },
+      "description": "Storefront hero and promotional banners"
+    },
+    "/coupons/{couponId}": {
+      "schema": { "$ref": "#/entities/Coupon" },
+      "description": "Promotional discount coupons"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders"
+    },
+    "/orders/{orderId}/events/{eventId}": {
+      "schema": { "$ref": "#/entities/OrderEvent" },
+      "description": "Chronological tracking events for an order"
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Verified customer product reviews"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Global storefront and shipping configuration"
+    },
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Administrator role lookup collection"
+    }
+  }
+}

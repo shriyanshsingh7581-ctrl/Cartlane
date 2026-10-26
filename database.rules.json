@@ -1,0 +1,119 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('adminUsers').child(auth.uid).exists())",
+        ".write": "auth != null && auth.uid === $uid && (!newData.exists() || (newData.hasChildren(['uid', 'displayName', 'email', 'createdAt', 'updatedAt']) && newData.child('uid').val() === $uid))",
+        "addresses": {
+          "$addressId": {
+            ".read": "auth != null && (auth.uid === $uid || root.child('adminUsers').child(auth.uid).exists())",
+            ".write": "auth != null && auth.uid === $uid && (!newData.exists() || (newData.child('uid').val() === $uid && newData.child('pinCode').val().matches(/^[0-9]{6}$/)))"
+          }
+        }
+      }
+    },
+    "products": {
+      ".read": true,
+      ".indexOn": ["slug", "category", "status", "isFeatured", "isBestseller", "isNewArrival"],
+      "$productId": {
+        ".write": "auth != null && root.child('adminUsers').child(auth.uid).exists()"
+      }
+    },
+    "categories": {
+      ".read": true,
+      ".indexOn": ["slug", "order"],
+      "$categoryId": {
+        ".write": "auth != null && root.child('adminUsers').child(auth.uid).exists()"
+      }
+    },
+    "collections": {
+      ".read": true,
+      ".indexOn": ["slug"],
+      "$collectionId": {
+        ".write": "auth != null && root.child('adminUsers').child(auth.uid).exists()"
+      }
+    },
+    "banners": {
+      ".read": true,
+      ".indexOn": ["placement", "order"],
+      "$bannerId": {
+        ".write": "auth != null && root.child('adminUsers').child(auth.uid).exists()"
+      }
+    },
+    "homepageSections": {
+      ".read": true,
+      ".indexOn": ["order"],
+      "$sectionId": {
+        ".write": "auth != null && root.child('adminUsers').child(auth.uid).exists()"
+      }
+    },
+    "carts": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "wishlists": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$productId": {
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+    "orders": {
+      ".indexOn": ["uid", "status", "createdAt"],
+      "$orderId": {
+        ".read": "auth != null && (data.child('uid').val() === auth.uid || root.child('adminUsers').child(auth.uid).exists())",
+        ".write": "auth != null && (root.child('adminUsers').child(auth.uid).exists() || (!data.exists() && newData.child('uid').val() === auth.uid && newData.child('status').val() === 'ORDER_PLACED') || (data.exists() && data.child('uid').val() === auth.uid && newData.child('status').val() === 'CANCELLATION_REQUESTED'))"
+      }
+    },
+    "userOrders": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('adminUsers').child(auth.uid).exists())",
+        "$orderId": {
+          ".write": "auth != null && (auth.uid === $uid || root.child('adminUsers').child(auth.uid).exists())"
+        }
+      }
+    },
+    "orderEvents": {
+      "$orderId": {
+        ".read": "auth != null && (root.child('orders').child($orderId).child('uid').val() === auth.uid || root.child('adminUsers').child(auth.uid).exists())",
+        "$eventId": {
+          ".write": "auth != null && (root.child('adminUsers').child(auth.uid).exists() || root.child('orders').child($orderId).child('uid').val() === auth.uid)"
+        }
+      }
+    },
+    "coupons": {
+      ".read": true,
+      ".indexOn": ["code"],
+      "$couponId": {
+        ".write": "auth != null && root.child('adminUsers').child(auth.uid).exists()"
+      }
+    },
+    "reviews": {
+      "$productId": {
+        ".read": true,
+        "$reviewId": {
+          ".write": "auth != null && (!data.exists() && newData.child('uid').val() === auth.uid || root.child('adminUsers').child(auth.uid).exists())"
+        }
+      }
+    },
+    "siteSettings": {
+      ".read": true,
+      ".write": "auth != null && root.child('adminUsers').child(auth.uid).exists()"
+    },
+    "shippingSettings": {
+      ".read": true,
+      ".write": "auth != null && root.child('adminUsers').child(auth.uid).exists()"
+    },
+    "adminUsers": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('adminUsers').child(auth.uid).exists())",
+        ".write": false
+      }
+    }
+  }
+}
