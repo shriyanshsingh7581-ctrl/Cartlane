@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -40,6 +40,23 @@ const ScrollToTop: React.FC = () => {
   return null;
 };
 
+const InitialAdminOpener: React.FC = () => {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const hasOpenedOnBoot = React.useRef(false);
+
+  useEffect(() => {
+    if (!hasOpenedOnBoot.current) {
+      hasOpenedOnBoot.current = true;
+      if (pathname === '/') {
+        navigate('/admin', { replace: true });
+      }
+    }
+  }, [pathname, navigate]);
+
+  return null;
+};
+
 const ToastBanner: React.FC = () => {
   const { toast } = useStore();
   if (!toast) return null;
@@ -55,6 +72,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <StoreProvider>
+        <InitialAdminOpener />
         <ScrollToTop />
         <div className="min-h-screen flex flex-col justify-between bg-[#F1F3F6] text-[#212121]">
           <Navbar />

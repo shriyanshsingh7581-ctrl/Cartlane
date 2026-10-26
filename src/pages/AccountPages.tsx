@@ -254,14 +254,23 @@ export const EmailAuthCard: React.FC<{
 };
 
 export const LoginPage: React.FC = () => {
-  const { user, userProfile } = useStore();
+  const { user, userProfile, isAdmin } = useStore();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (user || userProfile) {
-      navigate('/account');
+      const email = (userProfile?.email || user?.email || '').toLowerCase();
+      if (
+        isAdmin ||
+        email === 'admin@cartlane.in' ||
+        email === 'singhshriyansh51@gmail.com'
+      ) {
+        navigate('/admin');
+      } else {
+        navigate('/account');
+      }
     }
-  }, [user, userProfile, navigate]);
+  }, [user, userProfile, isAdmin, navigate]);
 
   return (
     <main className="max-w-4xl mx-auto px-3 sm:px-6 pt-6 pb-24 md:py-12">

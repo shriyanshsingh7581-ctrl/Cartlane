@@ -53,11 +53,17 @@ export const Navbar: React.FC = () => {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setMobileSheetOpen(false);
-    if (!searchText.trim()) {
+    const trimmed = searchText.trim();
+    if (!trimmed) {
       navigate('/products');
       return;
     }
-    navigate(`/search?q=${encodeURIComponent(searchText.trim())}`);
+    if (trimmed.toLowerCase() === '/admin' || trimmed.toLowerCase() === 'admin') {
+      setSearchText('');
+      navigate('/admin');
+      return;
+    }
+    navigate(`/search?q=${encodeURIComponent(trimmed)}`);
   };
 
   return (

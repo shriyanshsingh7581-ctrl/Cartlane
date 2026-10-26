@@ -216,8 +216,17 @@ export const Footer: React.FC = () => {
       {/* Bottom Copyright Bar */}
       <div className="border-t border-white/10">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-white/70">
-          <p>
-            © {new Date().getFullYear()} {settings.brandName || 'Cartlane'}. All rights reserved.
+          <p className="flex items-center gap-2">
+            <span>
+              © {new Date().getFullYear()} {settings.brandName || 'Cartlane'}. All rights reserved.
+            </span>
+            <Link
+              to="/admin"
+              title="Owner Portal"
+              className="text-white/25 hover:text-white/70 transition-colors"
+            >
+              •
+            </Link>
           </p>
           <p>
             Free Delivery ≥ ₹{settings.freeShippingThreshold} · {settings.returnWindowDays}-Day Return Policy · Cash on Delivery Available
