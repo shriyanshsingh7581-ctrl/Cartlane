@@ -30,13 +30,14 @@ export const Navbar: React.FC = () => {
     wishlistIds,
     setCartDrawerOpen,
     user,
-    isAdmin,
+    userProfile,
   } = useStore();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
 
+  const isLoggedIn = Boolean(user || userProfile);
   const totalBagCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   if (location.pathname.startsWith('/admin')) {
@@ -93,16 +94,10 @@ export const Navbar: React.FC = () => {
               Top Offers
             </Link>
             <Link
-              to="/track-order"
+              to={isLoggedIn ? '/account' : '/login'}
               className="hover:text-[#FFE500] hover:underline underline-offset-8 transition-colors whitespace-nowrap shrink-0"
             >
-              Track Order
-            </Link>
-            <Link
-              to={user ? '/account' : '/login'}
-              className="hover:text-[#FFE500] hover:underline underline-offset-8 transition-colors whitespace-nowrap shrink-0"
-            >
-              {user ? 'My Account' : 'Login'}
+              {isLoggedIn ? 'My Account' : 'Login / Sign Up'}
             </Link>
             <Link
               to="/admin"
@@ -117,7 +112,7 @@ export const Navbar: React.FC = () => {
             <button
               type="button"
               onClick={() => setCartDrawerOpen(true)}
-              className="min-h-[38px] sm:min-h-[40px] inline-flex items-center gap-2 px-3.5 sm:px-4 py-1.5 text-xs sm:text-sm font-bold text-[#2874F0] bg-white hover:bg-[#FFE500] hover:text-[#212121] rounded-xs shadow-xs active:scale-[0.98] transition-all whitespace-nowrap shrink-0"
+              className="min-h-[38px] sm:min-h-[40px] inline-flex items-center gap-2 px-3.5 sm:px-4 py-1.5 text-xs sm:text-sm font-bold text-[#2874F0] bg-white hover:bg-[#FFE500] hover:text-[#212121] rounded-xs shadow-xs active:scale-[0.98] transition-all whitespace-nowrap shrink-0 cursor-pointer"
             >
               <ShoppingCart className="w-4 h-4" />
               <span>Cart ({totalBagCount})</span>
@@ -125,36 +120,55 @@ export const Navbar: React.FC = () => {
           </div>
         </header>
 
-        {/* Sub-Header Instant Search & Delivery Location Bar */}
+        {/* Sub-Header Instant Search & Quick Mobile/Desktop Actions */}
         <div className="bg-[#1E5BC6] border-t border-white/15">
           <div className="max-w-[1440px] mx-auto px-3 sm:px-6 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             {/* Flipkart White Search Input */}
-            <form onSubmit={handleSearchSubmit} className="flex-1 max-w-2xl flex items-center">
+            <form onSubmit={handleSearchSubmit} className="flex-1 max-w-2xl flex items-center gap-2">
               <div className="relative flex-1">
                 <input
                   type="search"
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="Search for Perfumes, Charcoal Face Wash, Beard Oil, Gift Kits and More..."
+                  placeholder="Search for Perfumes, Charcoal Face Wash, Beard Oil, Gift Kits..."
                   className="w-full h-9 sm:h-10 bg-white text-[#212121] placeholder-[#878787] pl-3.5 pr-10 text-xs sm:text-sm rounded-xs shadow-xs focus:outline-none"
                 />
                 <button
                   type="submit"
                   aria-label="Search"
-                  className="absolute right-0 top-0 bottom-0 px-3 flex items-center justify-center text-[#2874F0] hover:text-[#1E5BC6]"
+                  className="absolute right-0 top-0 bottom-0 px-3 flex items-center justify-center text-[#2874F0] hover:text-[#1E5BC6] cursor-pointer"
                 >
                   <Search className="w-4 h-4" />
                 </button>
               </div>
+              <Link
+                to="/admin"
+                className="sm:hidden h-9 px-2.5 bg-[#FFE500] text-[#212121] text-[11px] font-extrabold uppercase tracking-wider rounded-xs inline-flex items-center justify-center whitespace-nowrap shrink-0"
+              >
+                Admin
+              </Link>
+              <Link
+                to={isLoggedIn ? '/account' : '/login'}
+                className="sm:hidden h-9 px-2.5 bg-white/15 border border-white/30 text-white text-[11px] font-extrabold uppercase tracking-wider rounded-xs inline-flex items-center justify-center whitespace-nowrap shrink-0"
+              >
+                {isLoggedIn ? 'Account' : 'Login'}
+              </Link>
             </form>
 
             {/* Delivery Location & Offer Callout */}
             <div className="hidden sm:flex items-center gap-5 text-xs text-white/95 shrink-0">
               <Link
                 to="/admin"
-                className="inline-flex items-center gap-1 text-[#FFE500] font-bold hover:underline whitespace-nowrap"
+                className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#FFE500] text-[#212121] rounded-xs font-extrabold hover:bg-white transition-colors whitespace-nowrap"
               >
-                <span>Seller Hub / Admin</span>
+                <span>Seller Hub / Admin Panel</span>
+              </Link>
+              <Link
+                to={isLoggedIn ? '/account' : '/login'}
+                className="inline-flex items-center gap-1 hover:text-[#FFE500] font-bold transition-colors whitespace-nowrap"
+              >
+                <User className="w-3.5 h-3.5 text-[#FFE500]" />
+                <span>{isLoggedIn ? userProfile?.displayName || 'My Account' : 'Login / Sign Up'}</span>
               </Link>
               <Link
                 to="/wishlist"
@@ -165,7 +179,7 @@ export const Navbar: React.FC = () => {
               </Link>
               <span className="inline-flex items-center gap-1.5 text-white/90 whitespace-nowrap">
                 <MapPin className="w-3.5 h-3.5 text-[#FFE500]" />
-                <span>Deliver across India · Free above ₹{settings.freeShippingThreshold}</span>
+                <span>Free Delivery above ₹{settings.freeShippingThreshold}</span>
               </span>
             </div>
           </div>
@@ -205,20 +219,20 @@ export const Navbar: React.FC = () => {
           </button>
 
           <Link
-            to="/offers"
+            to="/admin"
             onClick={() => setMobileSheetOpen(false)}
             className={`min-h-[48px] flex flex-col items-center justify-center gap-0.5 transition-colors ${
-              location.pathname === '/offers'
+              location.pathname.startsWith('/admin')
                 ? 'text-[#2874F0] font-bold'
-                : 'text-[#878787]'
+                : 'text-[#2874F0] font-bold'
             }`}
           >
             <Tag className="w-5 h-5" />
-            <span className="text-[10px] tracking-tight whitespace-nowrap">Top Deals</span>
+            <span className="text-[10px] tracking-tight whitespace-nowrap">Admin Panel</span>
           </Link>
 
           <Link
-            to={isAdmin ? '/admin' : '/account'}
+            to={isLoggedIn ? '/account' : '/login'}
             onClick={() => setMobileSheetOpen(false)}
             className={`min-h-[48px] flex flex-col items-center justify-center gap-0.5 transition-colors ${
               location.pathname.startsWith('/account') || location.pathname === '/login'
@@ -228,7 +242,7 @@ export const Navbar: React.FC = () => {
           >
             <User className="w-5 h-5" />
             <span className="text-[10px] tracking-tight whitespace-nowrap">
-              {isAdmin ? 'Admin' : 'Account'}
+              {isLoggedIn ? 'Account' : 'Login'}
             </span>
           </Link>
 

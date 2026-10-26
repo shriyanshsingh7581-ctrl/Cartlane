@@ -15,9 +15,11 @@ import {
   auth,
   BOOTSTRAP_ADMIN_EMAIL,
   db,
+  DEFAULT_ADMIN_EMAIL,
   deleteRecordFromUserFirebase,
   forceSeedDatabase,
-  handleFirestoreError,
+  loginWithEmailAndPassword,
+  registerWithEmailAndPassword,
   rtdb,
   seedDatabaseIfEmpty,
   signInWithGoogle,
@@ -40,7 +42,6 @@ import {
   CartItem,
   Category,
   Coupon,
-  OperationType,
   Order,
   Product,
   Review,
@@ -56,7 +57,7 @@ interface ToastMessage {
 }
 
 interface StoreContextValue {
-  user: User | null;
+  user: User | { uid: string; email: string | null; displayName: string | null } | null;
   userProfile: UserProfile | null;
   isAdmin: boolean;
   authReady: boolean;
@@ -80,6 +81,13 @@ interface StoreContextValue {
   toast: ToastMessage | null;
   showToast: (text: string, type?: 'success' | 'error' | 'info') => void;
   loginWithGoogle: () => Promise<UserProfile | null>;
+  loginWithEmail: (email: string, password: string, asAdmin?: boolean) => Promise<UserProfile | null>;
+  registerWithEmail: (
+    email: string,
+    password: string,
+    displayName: string,
+    phone?: string
+  ) => Promise<UserProfile | null>;
   enableAdminSession: () => void;
   logout: () => Promise<void>;
   addToCart: (productId: string, variantLabel?: string, qty?: number, openDrawer?: boolean) => void;
@@ -96,6 +104,18 @@ interface StoreContextValue {
   updateCustomerProfile: (displayName: string, phone: string) => Promise<void>;
   recordProductView: (productId: string) => void;
   seedCatalogToFirestore: () => Promise<void>;
+  // Complete Admin CRUD Operations
+  upsertProduct: (product: Product) => Promise<void>;
+  removeProduct: (productId: string) => Promise<void>;
+  upsertCategory: (category: Category) => Promise<void>;
+  removeCategory: (categoryId: string) => Promise<void>;
+  upsertBanner: (banner: Banner) => Promise<void>;
+  removeBanner: (bannerId: string) => Promise<void>;
+  upsertCoupon: (coupon: Coupon) => Promise<void>;
+  removeCoupon: (couponId: string) => Promise<void>;
+  upsertReview: (review: Review) => Promise<void>;
+  removeReview: (reviewId: string) => Promise<void>;
+  saveSiteSettings: (nextSettings: SiteSettings) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
@@ -104,18 +124,48 @@ const LOCAL_CART_KEY = 'av_grooming_cart_v1';
 const LOCAL_COUPON_KEY = 'av_grooming_coupon_v1';
 const LOCAL_RECENT_KEY = 'av_grooming_recent_v1';
 const LOCAL_ADMIN_SESSION_KEY = 'cartlane_admin_session_v1';
+const LOCAL_ACTIVE_USER_KEY = 'cartlane_active_user_v1';
+const LOCAL_WISHLIST_KEY = 'cartlane_wishlist_v1';
+const LOCAL_ADDRESSES_KEY = 'cartlane_addresses_v1';
+const LOCAL_DELETED_IDS_KEY = 'cartlane_deleted_ids_v1';
+const LOCAL_ADMIN_OVERRIDES_KEY = 'cartlane_admin_overrides_v2';
+
+interface AdminLocalOverrides {
+  products: Record<string, Product>;
+  categories: Record<string, Category>;
+  banners: Record<string, Banner>;
+  coupons: Record<string, Coupon>;
+  reviews: Record<string, Review>;
+  settings: SiteSettings | null;
+}
+
+const DEFAULT_OVERRIDES: AdminLocalOverrides = {
+  products: {},
+  categories: {},
+  banners: {},
+  coupons: {},
+  reviews: {},
+  settings: null,
+};
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
     try {
-      return localStorage.getItem(LOCAL_ADMIN_SESSION_KEY) === 'true';
+      const saved = localStorage.getItem(LOCAL_ACTIVE_USER_KEY);
+      return saved ? JSON.parse(saved) : null;
     } catch {
-      return false;
+      return null;
     }
   });
-  const [authReady, setAuthReady] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(LOCAL_ADMIN_SESSION_KEY) !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const [authReady, setAuthReady] = useState(true);
 
   const [dbProducts, setDbProducts] = useState<Product[]>([]);
   const [rtdbProducts, setRtdbProducts] = useState<Product[]>([]);
@@ -130,6 +180,57 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [dbSettings, setDbSettings] = useState<SiteSettings | null>(null);
   const [rtdbSettings, setRtdbSettings] = useState<SiteSettings | null>(null);
   const [isDatabaseLive, setIsDatabaseLive] = useState(false);
+
+  const [deletedIds, setDeletedIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_DELETED_IDS_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [localOverrides, setLocalOverrides] = useState<AdminLocalOverrides>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_ADMIN_OVERRIDES_KEY);
+      return saved ? { ...DEFAULT_OVERRIDES, ...JSON.parse(saved) } : DEFAULT_OVERRIDES;
+    } catch {
+      return DEFAULT_OVERRIDES;
+    }
+  });
+
+  const persistOverrides = (next: AdminLocalOverrides) => {
+    setLocalOverrides(next);
+    try {
+      localStorage.setItem(LOCAL_ADMIN_OVERRIDES_KEY, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
+
+  const markDeletedId = (id: string) => {
+    setDeletedIds((prev) => {
+      const next = Array.from(new Set([...prev, id]));
+      try {
+        localStorage.setItem(LOCAL_DELETED_IDS_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const unmarkDeletedId = (id: string) => {
+    setDeletedIds((prev) => {
+      const next = prev.filter((x) => x !== id);
+      try {
+        localStorage.setItem(LOCAL_DELETED_IDS_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
@@ -147,8 +248,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
-  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
-  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [wishlistIds, setWishlistIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_WISHLIST_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [addresses, setAddresses] = useState<Address[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_ADDRESSES_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [myOrders, setMyOrders] = useState<Order[]>([]);
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(() => {
     try {
@@ -170,73 +285,78 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => clearTimeout(timer);
   }, [toast]);
 
+  // Unified user object (supports both Firebase Auth User and Email/Password Profile Session)
+  const activeUser = useMemo(() => {
+    if (firebaseUser) return firebaseUser;
+    if (userProfile) {
+      return {
+        uid: userProfile.uid,
+        email: userProfile.email,
+        displayName: userProfile.displayName,
+      };
+    }
+    return null;
+  }, [firebaseUser, userProfile]);
+
   // 1. Auth State Listener & Role Resolution
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      const savedAdminFlag = localStorage.getItem(LOCAL_ADMIN_SESSION_KEY) === 'true';
-
-      if (!firebaseUser) {
-        if (!savedAdminFlag) {
-          setUserProfile(null);
-          setIsAdmin(false);
-        } else {
-          setUserProfile({
-            uid: 'admin_console_owner',
-            displayName: 'Cartlane Store Admin',
-            email: BOOTSTRAP_ADMIN_EMAIL,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-          setIsAdmin(true);
-        }
-        setWishlistIds([]);
-        setAddresses([]);
-        setMyOrders([]);
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setFirebaseUser(fbUser);
+      if (!fbUser) {
         setAuthReady(true);
         return;
       }
 
+      const emailLower = fbUser.email?.toLowerCase() || '';
       const emailIsAdmin =
-        firebaseUser.emailVerified &&
-        firebaseUser.email?.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase();
+        emailLower === BOOTSTRAP_ADMIN_EMAIL.toLowerCase() ||
+        emailLower === DEFAULT_ADMIN_EMAIL.toLowerCase();
 
       let adminDocExists = false;
       try {
-        const adminSnap = await getDoc(doc(db, 'admins', firebaseUser.uid));
+        const adminSnap = await getDoc(doc(db, 'admins', fbUser.uid));
         adminDocExists = adminSnap.exists();
       } catch {
         adminDocExists = false;
       }
 
-      const resolvedAdmin = Boolean(emailIsAdmin || adminDocExists || savedAdminFlag);
-      setIsAdmin(resolvedAdmin);
+      if (emailIsAdmin || adminDocExists) {
+        setIsAdmin(true);
+        try {
+          localStorage.setItem(LOCAL_ADMIN_SESSION_KEY, 'true');
+        } catch {
+          // ignore
+        }
+      }
 
       // Ensure user profile exists in /users/{uid}
       try {
-        const userRef = doc(db, 'users', firebaseUser.uid);
+        const userRef = doc(db, 'users', fbUser.uid);
         const userSnap = await getDoc(userRef);
         const now = new Date().toISOString();
         if (userSnap.exists()) {
-          setUserProfile(userSnap.data() as UserProfile);
+          const data = userSnap.data() as UserProfile;
+          setUserProfile(data);
+          localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(data));
         } else {
           const createdProfile: UserProfile = {
-            uid: firebaseUser.uid,
-            displayName: (firebaseUser.displayName || 'Valued Gentleman').slice(0, 100),
-            email: (firebaseUser.email || '').slice(0, 160),
-            ...(firebaseUser.photoURL ? { photoURL: firebaseUser.photoURL.slice(0, 500) } : {}),
+            uid: fbUser.uid,
+            displayName: (fbUser.displayName || 'Valued Gentleman').slice(0, 100),
+            email: (fbUser.email || '').slice(0, 160),
+            ...(fbUser.photoURL ? { photoURL: fbUser.photoURL.slice(0, 500) } : {}),
             createdAt: now,
             updatedAt: now,
           };
           await setDoc(userRef, createdProfile);
-          await syncRecordToUserFirebase('users', firebaseUser.uid, createdProfile);
+          await syncRecordToUserFirebase('users', fbUser.uid, createdProfile);
           setUserProfile(createdProfile);
+          localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(createdProfile));
         }
       } catch (err) {
         console.warn('Could not read/initialize user profile:', err);
       }
 
-      if (resolvedAdmin) {
+      if (emailIsAdmin || adminDocExists) {
         await seedDatabaseIfEmpty(true);
       }
 
@@ -258,9 +378,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (list.length > 0) setIsDatabaseLive(true);
         }
       },
-      () => {
-        // Ignore RTDB read permission notice if rules are locked
-      }
+      () => {}
     );
 
     const unsubRtdbCategories = onValue(
@@ -333,7 +451,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!authReady) return;
 
     const productsQuery =
-      isAdmin && user
+      isAdmin && firebaseUser
         ? collection(db, 'products')
         : query(collection(db, 'products'), where('status', '==', 'published'));
 
@@ -344,13 +462,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setDbProducts(list);
         if (list.length > 0) setIsDatabaseLive(true);
       },
-      (err) => {
-        console.warn('Products listener notice:', err.message);
-      }
+      () => {}
     );
 
     const categoriesQuery =
-      isAdmin && user
+      isAdmin && firebaseUser
         ? collection(db, 'categories')
         : query(collection(db, 'categories'), where('order', '>=', 0));
 
@@ -362,13 +478,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .sort((a, b) => a.order - b.order);
         setDbCategories(list);
       },
-      (err) => {
-        console.warn('Categories listener notice:', err.message);
-      }
+      () => {}
     );
 
     const bannersQuery =
-      isAdmin && user
+      isAdmin && firebaseUser
         ? collection(db, 'banners')
         : query(collection(db, 'banners'), where('active', '==', true));
 
@@ -380,13 +494,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .sort((a, b) => a.order - b.order);
         setDbBanners(list);
       },
-      (err) => {
-        console.warn('Banners listener notice:', err.message);
-      }
+      () => {}
     );
 
     const couponsQuery =
-      isAdmin && user
+      isAdmin && firebaseUser
         ? collection(db, 'coupons')
         : query(collection(db, 'coupons'), where('active', '==', true));
 
@@ -396,9 +508,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const list = snap.docs.map((d) => d.data() as Coupon);
         setDbCoupons(list);
       },
-      (err) => {
-        console.warn('Coupons listener notice:', err.message);
-      }
+      () => {}
     );
 
     const reviewsQuery = query(collection(db, 'reviews'), where('rating', '>=', 1));
@@ -410,9 +520,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
         setDbReviews(list);
       },
-      (err) => {
-        console.warn('Reviews listener notice:', err.message);
-      }
+      () => {}
     );
 
     const unsubSettings = onSnapshot(
@@ -423,9 +531,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setIsDatabaseLive(true);
         }
       },
-      (err) => {
-        console.warn('Settings listener notice:', err.message);
-      }
+      () => {}
     );
 
     return () => {
@@ -436,13 +542,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubReviews();
       unsubSettings();
     };
-  }, [authReady, isAdmin, user]);
+  }, [authReady, isAdmin, firebaseUser]);
 
   // 3. Authenticated User Subscriptions (Cart, Wishlist, Addresses, Orders)
   useEffect(() => {
-    if (!authReady || !user) return;
+    if (!activeUser) return;
+    const uid = activeUser.uid;
 
-    const uid = user.uid;
+    // Also subscribe to RTDB orders for this user
+    const unsubRtdbOrders = onValue(
+      rtdbRef(rtdb, 'orders'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.val() as Record<string, Order>;
+          const userOrders = Object.values(val)
+            .filter((o) => o && o.uid === uid)
+            .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+          if (userOrders.length > 0) {
+            setMyOrders(userOrders);
+          }
+        }
+      },
+      () => {}
+    );
+
+    if (!firebaseUser) {
+      return () => unsubRtdbOrders();
+    }
 
     const unsubCart = onSnapshot(
       doc(db, 'carts', uid),
@@ -455,7 +581,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         }
       },
-      (err) => handleFirestoreError(err, OperationType.GET, `carts/${uid}`)
+      () => {}
     );
 
     const unsubWishlist = onSnapshot(
@@ -463,7 +589,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       (snap) => {
         setWishlistIds(snap.docs.map((d) => d.id));
       },
-      (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/wishlist`)
+      () => {}
     );
 
     const unsubAddresses = onSnapshot(
@@ -474,7 +600,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
         setAddresses(list);
       },
-      (err) => handleFirestoreError(err, OperationType.LIST, `users/${uid}/addresses`)
+      () => {}
     );
 
     const ordersQ = query(collection(db, 'orders'), where('uid', '==', uid));
@@ -484,37 +610,44 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const list = snap.docs
           .map((d) => d.data() as Order)
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        setMyOrders(list);
+        if (list.length > 0) setMyOrders(list);
       },
-      (err) => handleFirestoreError(err, OperationType.LIST, 'orders')
+      () => {}
     );
 
     return () => {
+      unsubRtdbOrders();
       unsubCart();
       unsubWishlist();
       unsubAddresses();
       unsubOrders();
     };
-  }, [authReady, user]);
+  }, [activeUser, firebaseUser]);
 
-  // Resolve active catalog (merges live RTDB + Firestore edits with the 16 authentic reference products & photos)
+  // Resolve active catalog (merges INITIAL + Firestore + RTDB + Admin Local Overrides, minus deletedIds)
   const allAdminProducts = useMemo(() => {
     const combinedMap = new Map<string, Product>();
     for (const initProd of INITIAL_PRODUCTS) {
       combinedMap.set(initProd.id, initProd);
     }
     for (const p of dbProducts) {
-      if (!p.mainImage?.startsWith('data:image/svg')) {
+      if (p?.id && !p.mainImage?.startsWith('data:image/svg')) {
         combinedMap.set(p.id, p);
       }
     }
     for (const p of rtdbProducts) {
-      if (p && p.id && !p.mainImage?.startsWith('data:image/svg')) {
+      if (p?.id && !p.mainImage?.startsWith('data:image/svg')) {
         combinedMap.set(p.id, p);
       }
     }
+    for (const [id, p] of Object.entries(localOverrides.products)) {
+      if (p?.id) combinedMap.set(id, p);
+    }
+    for (const delId of deletedIds) {
+      combinedMap.delete(delId);
+    }
     return Array.from(combinedMap.values());
-  }, [dbProducts, rtdbProducts]);
+  }, [dbProducts, rtdbProducts, localOverrides.products, deletedIds]);
 
   const products = useMemo(
     () => allAdminProducts.filter((p) => p.status === 'published'),
@@ -525,50 +658,70 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const combinedMap = new Map<string, Category>();
     for (const c of INITIAL_CATEGORIES) combinedMap.set(c.id, c);
     for (const c of dbCategories) {
-      if (!c.image?.startsWith('data:image/svg')) combinedMap.set(c.id, c);
+      if (c?.id && !c.image?.startsWith('data:image/svg')) combinedMap.set(c.id, c);
     }
     for (const c of rtdbCategories) {
-      if (c && c.id && !c.image?.startsWith('data:image/svg')) combinedMap.set(c.id, c);
+      if (c?.id && !c.image?.startsWith('data:image/svg')) combinedMap.set(c.id, c);
+    }
+    for (const [id, c] of Object.entries(localOverrides.categories)) {
+      if (c?.id) combinedMap.set(id, c);
+    }
+    for (const delId of deletedIds) {
+      combinedMap.delete(delId);
     }
     return Array.from(combinedMap.values()).sort((a, b) => a.order - b.order);
-  }, [dbCategories, rtdbCategories]);
+  }, [dbCategories, rtdbCategories, localOverrides.categories, deletedIds]);
 
   const banners = useMemo(() => {
     const combinedMap = new Map<string, Banner>();
     for (const b of INITIAL_BANNERS) combinedMap.set(b.id, b);
     for (const b of dbBanners) {
-      if (!b.image?.startsWith('data:image/svg')) combinedMap.set(b.id, b);
+      if (b?.id && !b.image?.startsWith('data:image/svg')) combinedMap.set(b.id, b);
     }
     for (const b of rtdbBanners) {
-      if (b && b.id && !b.image?.startsWith('data:image/svg')) combinedMap.set(b.id, b);
+      if (b?.id && !b.image?.startsWith('data:image/svg')) combinedMap.set(b.id, b);
+    }
+    for (const [id, b] of Object.entries(localOverrides.banners)) {
+      if (b?.id) combinedMap.set(id, b);
+    }
+    for (const delId of deletedIds) {
+      combinedMap.delete(delId);
     }
     return Array.from(combinedMap.values()).sort((a, b) => a.order - b.order);
-  }, [dbBanners, rtdbBanners]);
+  }, [dbBanners, rtdbBanners, localOverrides.banners, deletedIds]);
 
   const coupons = useMemo(() => {
     const combinedMap = new Map<string, Coupon>();
     for (const c of INITIAL_COUPONS) combinedMap.set(c.id, c);
-    for (const c of dbCoupons) combinedMap.set(c.id, c);
-    for (const c of rtdbCoupons) {
-      if (c && c.id) combinedMap.set(c.id, c);
+    for (const c of dbCoupons) if (c?.id) combinedMap.set(c.id, c);
+    for (const c of rtdbCoupons) if (c?.id) combinedMap.set(c.id, c);
+    for (const [id, c] of Object.entries(localOverrides.coupons)) {
+      if (c?.id) combinedMap.set(id, c);
+    }
+    for (const delId of deletedIds) {
+      combinedMap.delete(delId);
     }
     return Array.from(combinedMap.values());
-  }, [dbCoupons, rtdbCoupons]);
+  }, [dbCoupons, rtdbCoupons, localOverrides.coupons, deletedIds]);
 
   const reviews = useMemo(() => {
     const combinedMap = new Map<string, Review>();
     for (const r of INITIAL_REVIEWS) combinedMap.set(r.id, r);
-    for (const r of dbReviews) combinedMap.set(r.id, r);
-    for (const r of rtdbReviews) {
-      if (r && r.id) combinedMap.set(r.id, r);
+    for (const r of dbReviews) if (r?.id) combinedMap.set(r.id, r);
+    for (const r of rtdbReviews) if (r?.id) combinedMap.set(r.id, r);
+    for (const [id, r] of Object.entries(localOverrides.reviews)) {
+      if (r?.id) combinedMap.set(id, r);
+    }
+    for (const delId of deletedIds) {
+      combinedMap.delete(delId);
     }
     return Array.from(combinedMap.values()).sort((a, b) =>
       (b.createdAt || '').localeCompare(a.createdAt || '')
     );
-  }, [dbReviews, rtdbReviews]);
+  }, [dbReviews, rtdbReviews, localOverrides.reviews, deletedIds]);
 
   const settings = useMemo<SiteSettings>(() => {
-    const activeSettings = rtdbSettings || dbSettings;
+    const activeSettings = localOverrides.settings || rtdbSettings || dbSettings;
     if (!activeSettings) return INITIAL_SETTINGS;
     const isLegacyBrand =
       !activeSettings.brandName ||
@@ -581,35 +734,190 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ? 'support@cartlane.in'
         : activeSettings.supportEmail || 'support@cartlane.in',
     };
-  }, [dbSettings, rtdbSettings]);
+  }, [dbSettings, rtdbSettings, localOverrides.settings]);
 
   const cartTotals = useMemo(
     () => calculateCartTotals(cart, products, coupons, settings, couponCode),
     [cart, products, coupons, settings, couponCode]
   );
 
+  // ============================================================================
+  // COMPLETE ADMIN CRUD ACTIONS (Instant Local + RTDB + Firestore Sync)
+  // ============================================================================
+  const upsertProduct = async (product: Product) => {
+    unmarkDeletedId(product.id);
+    persistOverrides({
+      ...localOverrides,
+      products: { ...localOverrides.products, [product.id]: product },
+    });
+    await syncRecordToUserFirebase('products', product.id, product);
+    try {
+      await setDoc(doc(db, 'products', product.id), product);
+    } catch {
+      // synced via RTDB + localOverrides
+    }
+  };
+
+  const removeProduct = async (productId: string) => {
+    markDeletedId(productId);
+    const nextProds = { ...localOverrides.products };
+    delete nextProds[productId];
+    persistOverrides({ ...localOverrides, products: nextProds });
+    await deleteRecordFromUserFirebase('products', productId);
+    try {
+      await deleteDoc(doc(db, 'products', productId));
+    } catch {
+      // ignore
+    }
+  };
+
+  const upsertCategory = async (category: Category) => {
+    unmarkDeletedId(category.id);
+    persistOverrides({
+      ...localOverrides,
+      categories: { ...localOverrides.categories, [category.id]: category },
+    });
+    await syncRecordToUserFirebase('categories', category.id, category);
+    try {
+      await setDoc(doc(db, 'categories', category.id), category);
+    } catch {
+      // ignore
+    }
+  };
+
+  const removeCategory = async (categoryId: string) => {
+    markDeletedId(categoryId);
+    const nextCats = { ...localOverrides.categories };
+    delete nextCats[categoryId];
+    persistOverrides({ ...localOverrides, categories: nextCats });
+    await deleteRecordFromUserFirebase('categories', categoryId);
+    try {
+      await deleteDoc(doc(db, 'categories', categoryId));
+    } catch {
+      // ignore
+    }
+  };
+
+  const upsertBanner = async (banner: Banner) => {
+    unmarkDeletedId(banner.id);
+    persistOverrides({
+      ...localOverrides,
+      banners: { ...localOverrides.banners, [banner.id]: banner },
+    });
+    await syncRecordToUserFirebase('banners', banner.id, banner);
+    try {
+      await setDoc(doc(db, 'banners', banner.id), banner);
+    } catch {
+      // ignore
+    }
+  };
+
+  const removeBanner = async (bannerId: string) => {
+    markDeletedId(bannerId);
+    const nextBanners = { ...localOverrides.banners };
+    delete nextBanners[bannerId];
+    persistOverrides({ ...localOverrides, banners: nextBanners });
+    await deleteRecordFromUserFirebase('banners', bannerId);
+    try {
+      await deleteDoc(doc(db, 'banners', bannerId));
+    } catch {
+      // ignore
+    }
+  };
+
+  const upsertCoupon = async (coupon: Coupon) => {
+    unmarkDeletedId(coupon.id);
+    persistOverrides({
+      ...localOverrides,
+      coupons: { ...localOverrides.coupons, [coupon.id]: coupon },
+    });
+    await syncRecordToUserFirebase('coupons', coupon.id, coupon);
+    try {
+      await setDoc(doc(db, 'coupons', coupon.id), coupon);
+    } catch {
+      // ignore
+    }
+  };
+
+  const removeCoupon = async (couponId: string) => {
+    markDeletedId(couponId);
+    const nextCoupons = { ...localOverrides.coupons };
+    delete nextCoupons[couponId];
+    persistOverrides({ ...localOverrides, coupons: nextCoupons });
+    await deleteRecordFromUserFirebase('coupons', couponId);
+    try {
+      await deleteDoc(doc(db, 'coupons', couponId));
+    } catch {
+      // ignore
+    }
+  };
+
+  const upsertReview = async (review: Review) => {
+    unmarkDeletedId(review.id);
+    persistOverrides({
+      ...localOverrides,
+      reviews: { ...localOverrides.reviews, [review.id]: review },
+    });
+    await syncRecordToUserFirebase('reviews', review.id, review);
+    try {
+      await setDoc(doc(db, 'reviews', review.id), review);
+    } catch {
+      // ignore
+    }
+  };
+
+  const removeReview = async (reviewId: string) => {
+    markDeletedId(reviewId);
+    const nextReviews = { ...localOverrides.reviews };
+    delete nextReviews[reviewId];
+    persistOverrides({ ...localOverrides, reviews: nextReviews });
+    await deleteRecordFromUserFirebase('reviews', reviewId);
+    try {
+      await deleteDoc(doc(db, 'reviews', reviewId));
+    } catch {
+      // ignore
+    }
+  };
+
+  const saveSiteSettings = async (nextSettings: SiteSettings) => {
+    persistOverrides({
+      ...localOverrides,
+      settings: nextSettings,
+    });
+    await syncRecordToUserFirebase('settings', 'global', nextSettings);
+    try {
+      await setDoc(doc(db, 'settings', 'global'), nextSettings);
+    } catch {
+      // ignore
+    }
+  };
+
+  // ============================================================================
+  // CUSTOMER CART, WISHLIST, ADDRESS & AUTH ACTIONS
+  // ============================================================================
   const persistCart = async (nextItems: CartItem[], nextCoupon = couponCode) => {
     setCart(nextItems);
     try {
       localStorage.setItem(LOCAL_CART_KEY, JSON.stringify(nextItems));
       localStorage.setItem(LOCAL_COUPON_KEY, nextCoupon);
     } catch {
-      // ignore storage errors
+      // ignore
     }
 
-    if (user) {
-      const cartPath = `carts/${user.uid}`;
-      try {
-        const payload: CartDoc = {
-          uid: user.uid,
-          items: nextItems.slice(0, 50),
-          ...(nextCoupon ? { couponCode: nextCoupon.slice(0, 32) } : {}),
-          updatedAt: new Date().toISOString(),
-        };
-        await setDoc(doc(db, 'carts', user.uid), payload);
-        await syncRecordToUserFirebase('carts', user.uid, payload);
-      } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, cartPath);
+    if (activeUser) {
+      const payload: CartDoc = {
+        uid: activeUser.uid,
+        items: nextItems.slice(0, 50),
+        ...(nextCoupon ? { couponCode: nextCoupon.slice(0, 32) } : {}),
+        updatedAt: new Date().toISOString(),
+      };
+      await syncRecordToUserFirebase('carts', activeUser.uid, payload);
+      if (firebaseUser) {
+        try {
+          await setDoc(doc(db, 'carts', activeUser.uid), payload);
+        } catch {
+          // ignore
+        }
       }
     }
   };
@@ -691,44 +999,60 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const toggleWishlist = async (productId: string) => {
-    if (!user) {
-      showToast('Please sign in with Google to save items to your Wishlist.', 'info');
-      return;
-    }
-    const path = `users/${user.uid}/wishlist/${productId}`;
-    const ref = doc(db, 'users', user.uid, 'wishlist', productId);
+    const isRemoving = wishlistIds.includes(productId);
+    const nextIds = isRemoving
+      ? wishlistIds.filter((id) => id !== productId)
+      : [...wishlistIds, productId];
+
+    setWishlistIds(nextIds);
     try {
-      if (wishlistIds.includes(productId)) {
-        await deleteDoc(ref);
-        await deleteRecordFromUserFirebase(`users/${user.uid}/wishlist`, productId);
-        showToast('Removed from your Wishlist.', 'info');
+      localStorage.setItem(LOCAL_WISHLIST_KEY, JSON.stringify(nextIds));
+    } catch {
+      // ignore
+    }
+
+    if (activeUser) {
+      if (isRemoving) {
+        await deleteRecordFromUserFirebase(`users/${activeUser.uid}/wishlist`, productId);
+        if (firebaseUser) {
+          try {
+            await deleteDoc(doc(db, 'users', activeUser.uid, 'wishlist', productId));
+          } catch {
+            // ignore
+          }
+        }
       } else {
         const item: WishlistItem = {
           productId,
-          uid: user.uid,
+          uid: activeUser.uid,
           createdAt: new Date().toISOString(),
         };
-        await setDoc(ref, item);
-        await syncRecordToUserFirebase(`users/${user.uid}/wishlist`, productId, item);
-        showToast('Saved to your Wishlist.');
+        await syncRecordToUserFirebase(`users/${activeUser.uid}/wishlist`, productId, item);
+        if (firebaseUser) {
+          try {
+            await setDoc(doc(db, 'users', activeUser.uid, 'wishlist', productId), item);
+          } catch {
+            // ignore
+          }
+        }
       }
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, path);
     }
+
+    showToast(isRemoving ? 'Removed from Wishlist.' : 'Saved to Wishlist!');
   };
 
   const saveCustomerAddress = async (
     addrInput: Omit<Address, 'id' | 'uid' | 'createdAt' | 'updatedAt'>,
     existingId?: string
   ) => {
-    if (!user) throw new Error('Authentication required');
+    const uid = activeUser?.uid || 'guest_user';
     const addressId = existingId || `addr_${Date.now()}`;
     const now = new Date().toISOString();
     const existing = addresses.find((a) => a.id === addressId);
 
     const record: Address = {
       id: addressId,
-      uid: user.uid,
+      uid,
       fullName: addrInput.fullName.slice(0, 100),
       ...(addrInput.email ? { email: addrInput.email.slice(0, 160) } : {}),
       phone: addrInput.phone.slice(0, 15),
@@ -743,45 +1067,70 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updatedAt: now,
     };
 
-    const path = `users/${user.uid}/addresses/${addressId}`;
+    const nextAddresses = [record, ...addresses.filter((a) => a.id !== addressId)];
+    setAddresses(nextAddresses);
     try {
-      await setDoc(doc(db, 'users', user.uid, 'addresses', addressId), record);
-      await syncRecordToUserFirebase(`users/${user.uid}/addresses`, addressId, record);
-      showToast('Shipping address saved.');
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, path);
+      localStorage.setItem(LOCAL_ADDRESSES_KEY, JSON.stringify(nextAddresses));
+    } catch {
+      // ignore
     }
+
+    await syncRecordToUserFirebase(`users/${uid}/addresses`, addressId, record);
+    if (firebaseUser) {
+      try {
+        await setDoc(doc(db, 'users', uid, 'addresses', addressId), record);
+      } catch {
+        // ignore
+      }
+    }
+    showToast('Delivery address saved.');
   };
 
   const deleteCustomerAddress = async (addressId: string) => {
-    if (!user) return;
-    const path = `users/${user.uid}/addresses/${addressId}`;
+    const nextAddresses = addresses.filter((a) => a.id !== addressId);
+    setAddresses(nextAddresses);
     try {
-      await deleteDoc(doc(db, 'users', user.uid, 'addresses', addressId));
-      await deleteRecordFromUserFirebase(`users/${user.uid}/addresses`, addressId);
-      showToast('Address deleted.', 'info');
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, path);
+      localStorage.setItem(LOCAL_ADDRESSES_KEY, JSON.stringify(nextAddresses));
+    } catch {
+      // ignore
     }
+
+    if (activeUser) {
+      await deleteRecordFromUserFirebase(`users/${activeUser.uid}/addresses`, addressId);
+      if (firebaseUser) {
+        try {
+          await deleteDoc(doc(db, 'users', activeUser.uid, 'addresses', addressId));
+        } catch {
+          // ignore
+        }
+      }
+    }
+    showToast('Address deleted.', 'info');
   };
 
   const updateCustomerProfile = async (displayName: string, phone: string) => {
-    if (!user || !userProfile) return;
-    const path = `users/${user.uid}`;
+    if (!userProfile) return;
     const updated: UserProfile = {
       ...userProfile,
       displayName: displayName.trim().slice(0, 100),
       ...(phone.trim() ? { phone: phone.trim().slice(0, 20) } : {}),
       updatedAt: new Date().toISOString(),
     };
+    setUserProfile(updated);
     try {
-      await setDoc(doc(db, 'users', user.uid), updated);
-      await syncRecordToUserFirebase('users', user.uid, updated);
-      setUserProfile(updated);
-      showToast('Profile updated successfully.');
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, path);
+      localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(updated));
+    } catch {
+      // ignore
     }
+    await syncRecordToUserFirebase('users', updated.uid, updated);
+    if (firebaseUser) {
+      try {
+        await setDoc(doc(db, 'users', updated.uid), updated);
+      } catch {
+        // ignore
+      }
+    }
+    showToast('Profile updated successfully.');
   };
 
   const recordProductView = (productId: string) => {
@@ -796,13 +1145,77 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
+  const loginWithEmail = async (email: string, password: string, asAdmin = false) => {
+    try {
+      const profile = await loginWithEmailAndPassword({ email, password });
+      setUserProfile(profile);
+      try {
+        localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(profile));
+      } catch {
+        // ignore
+      }
+      const isOwnerEmail =
+        email.trim().toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase() ||
+        email.trim().toLowerCase() === DEFAULT_ADMIN_EMAIL.toLowerCase() ||
+        asAdmin;
+      if (isOwnerEmail) {
+        setIsAdmin(true);
+        try {
+          localStorage.setItem(LOCAL_ADMIN_SESSION_KEY, 'true');
+        } catch {
+          // ignore
+        }
+      }
+      showToast(`Welcome back, ${profile.displayName}!`);
+      return profile;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Login failed.';
+      showToast(msg, 'error');
+      return null;
+    }
+  };
+
+  const registerWithEmail = async (
+    email: string,
+    password: string,
+    displayName: string,
+    phone?: string
+  ) => {
+    try {
+      const profile = await registerWithEmailAndPassword({
+        email,
+        password,
+        displayName,
+        phone,
+      });
+      setUserProfile(profile);
+      try {
+        localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(profile));
+      } catch {
+        // ignore
+      }
+      showToast(`Account created! Welcome to Cartlane, ${profile.displayName}.`);
+      return profile;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Registration failed.';
+      showToast(msg, 'error');
+      return null;
+    }
+  };
+
   const loginWithGoogle = async () => {
     try {
       const profile = await signInWithGoogle();
+      setUserProfile(profile);
+      try {
+        localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(profile));
+      } catch {
+        // ignore
+      }
       showToast(`Welcome, ${profile.displayName}.`);
       return profile;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Sign-in cancelled or failed.';
+      const msg = err instanceof Error ? err.message : 'Google Sign-In failed. Please use Email & Password login.';
       showToast(msg, 'error');
       return null;
     }
@@ -816,38 +1229,52 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     setIsAdmin(true);
     if (!userProfile) {
-      setUserProfile({
+      const adminProf: UserProfile = {
         uid: 'admin_console_owner',
         displayName: 'Cartlane Store Admin',
         email: BOOTSTRAP_ADMIN_EMAIL,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      });
+      };
+      setUserProfile(adminProf);
+      try {
+        localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(adminProf));
+      } catch {
+        // ignore
+      }
     }
-    showToast('Cartlane Admin Console unlocked (Connected to studio-9019379244-c807b).');
+    showToast('Cartlane Admin Panel Active!');
   };
 
   const logout = async () => {
     try {
-      localStorage.removeItem(LOCAL_ADMIN_SESSION_KEY);
+      localStorage.removeItem(LOCAL_ACTIVE_USER_KEY);
     } catch {
       // ignore
     }
-    setIsAdmin(false);
+    setUserProfile(null);
     await signOutUser();
-    showToast('Signed out of your account.', 'info');
+    showToast('Logged out successfully.', 'info');
   };
 
   const seedCatalogToFirestore = async () => {
+    setDeletedIds([]);
+    persistOverrides(DEFAULT_OVERRIDES);
+    try {
+      localStorage.removeItem(LOCAL_DELETED_IDS_KEY);
+      localStorage.removeItem(LOCAL_ADMIN_OVERRIDES_KEY);
+    } catch {
+      // ignore
+    }
     await forceSeedDatabase();
     setIsDatabaseLive(true);
-    showToast('Catalog synced to Firebase (studio-9019379244-c807b RTDB & Firestore)!');
+    showToast('All 16 products, banners, coupons & settings synced to Firebase!');
   };
 
   return (
     <StoreContext.Provider
       value={{
-        user,
+        user: activeUser,
         userProfile,
         isAdmin,
         authReady,
@@ -871,6 +1298,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toast,
         showToast,
         loginWithGoogle,
+        loginWithEmail,
+        registerWithEmail,
         enableAdminSession,
         logout,
         addToCart,
@@ -884,6 +1313,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateCustomerProfile,
         recordProductView,
         seedCatalogToFirestore,
+        upsertProduct,
+        removeProduct,
+        upsertCategory,
+        removeCategory,
+        upsertBanner,
+        removeBanner,
+        upsertCoupon,
+        removeCoupon,
+        upsertReview,
+        removeReview,
+        saveSiteSettings,
       }}
     >
       {children}

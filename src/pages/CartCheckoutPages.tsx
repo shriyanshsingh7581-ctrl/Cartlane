@@ -20,6 +20,7 @@ import { useStore } from '../context/StoreContext';
 import { checkoutSchema, CheckoutFormValues } from '../schemas/validation';
 import { placeOrderTransaction } from '../lib/orders';
 import { getOptimizedImageUrl } from '../lib/cloudinary';
+import { EmailAuthCard } from './AccountPages';
 
 export const CartPage: React.FC = () => {
   const {
@@ -550,9 +551,13 @@ export const CheckoutPage: React.FC = () => {
     }
   };
 
+  const activeUid = user?.uid || userProfile?.uid || '';
+  const activeEmail = userProfile?.email || user?.email || '';
+  const activeName = userProfile?.displayName || user?.displayName || '';
+
   const onSubmit = async (values: CheckoutFormValues) => {
-    if (!user) {
-      showToast('Please sign in with Google to place your order.', 'info');
+    if (!activeUid) {
+      showToast('Please sign in with Email & Password or Google to place your order.', 'info');
       return;
     }
     if (!settings.codEnabled) {
@@ -580,7 +585,7 @@ export const CheckoutPage: React.FC = () => {
       }
 
       const order = await placeOrderTransaction({
-        uid: user.uid,
+        uid: activeUid,
         checkoutData: values,
         cartItems: cart,
         couponCode,
@@ -618,27 +623,21 @@ export const CheckoutPage: React.FC = () => {
 
   return (
     <main className="max-w-[1440px] mx-auto px-2 sm:px-4 pt-4 pb-32 md:py-8">
-      {!user ? (
+      {!activeUid ? (
         <div className="max-w-xl mx-auto bg-white border border-[#E0E0E0] rounded-xs overflow-hidden shadow-xs">
           <div className="px-6 py-4 bg-[#2874F0] text-white flex items-center gap-3">
             <span className="w-6 h-6 bg-white text-[#2874F0] text-xs font-extrabold flex items-center justify-center rounded-xs">
               1
             </span>
             <h1 className="text-sm font-extrabold uppercase tracking-wider">
-              LOGIN OR SIGNUP
+              LOGIN OR SIGNUP TO CHECKOUT
             </h1>
           </div>
           <div className="p-6 space-y-4">
             <p className="text-xs text-[#212121] leading-relaxed">
-              Sign in with Google to unlock Cash on Delivery checkout, instant order confirmation, and live shipment tracking.
+              Sign in with your Email &amp; Password or create an account below to unlock Cash on Delivery checkout and live shipment tracking.
             </p>
-            <button
-              type="button"
-              onClick={loginWithGoogle}
-              className="px-8 py-3.5 bg-[#FB641B] hover:bg-[#E85812] text-white text-xs font-extrabold uppercase tracking-wider rounded-xs"
-            >
-              CONTINUE WITH GOOGLE
-            </button>
+            <EmailAuthCard compact />
           </div>
         </div>
       ) : (
@@ -660,8 +659,8 @@ export const CheckoutPage: React.FC = () => {
                     <Check className="w-4 h-4 text-[#2874F0]" />
                   </p>
                   <p className="text-xs font-bold text-[#212121] mt-0.5">
-                    {userProfile?.displayName || user.displayName} ·{' '}
-                    <span className="font-normal text-[#878787]">{user.email}</span>
+                    {activeName} ·{' '}
+                    <span className="font-normal text-[#878787]">{activeEmail}</span>
                   </p>
                 </div>
               </div>

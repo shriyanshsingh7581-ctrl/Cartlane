@@ -31,12 +31,12 @@ export const HomePage: React.FC = () => {
     [banners]
   );
 
-  // Auto-advance hero banner carousel every 5 seconds
+  // Auto-advance hero banner carousel every 7 seconds
   useEffect(() => {
     if (heroBanners.length <= 1) return;
     const timer = setInterval(() => {
       setHeroIndex((prev) => (prev + 1) % heroBanners.length);
-    }, 5000);
+    }, 7000);
     return () => clearInterval(timer);
   }, [heroBanners.length]);
 
@@ -132,13 +132,13 @@ export const HomePage: React.FC = () => {
           onTouchEnd={handleTouchEnd}
         >
           {currentHero?.image && (
-            <div className="relative w-full bg-[#141413] overflow-hidden">
+            <div className="relative w-full bg-[#09358A] overflow-hidden">
               <Link to={currentHero.ctaLink || '/products'} className="block w-full">
                 <img
                   src={getOptimizedImageUrl(currentHero.image, 1600)}
                   alt={currentHero.title}
                   referrerPolicy="no-referrer"
-                  className="w-full aspect-[16/9] sm:aspect-auto sm:max-h-[420px] object-cover object-center transition-opacity duration-300"
+                  className="w-full aspect-[16/9] sm:max-h-[480px] object-contain sm:object-cover object-center transition-opacity duration-300"
                 />
               </Link>
 

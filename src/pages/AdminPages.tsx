@@ -2,10 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   collection,
-  deleteDoc,
-  doc,
   onSnapshot,
-  setDoc,
 } from 'firebase/firestore';
 import { onValue, ref as rtdbRef } from 'firebase/database';
 import {
@@ -19,6 +16,8 @@ import {
   FolderKanban,
   Image as ImageIcon,
   KeyRound,
+  Lock,
+  Mail,
   MessageSquare,
   Package,
   Plus,
@@ -39,13 +38,13 @@ import {
   BOOTSTRAP_ADMIN_EMAIL,
   checkUserRtdbStatus,
   db,
-  deleteRecordFromUserFirebase,
   rtdb,
-  syncRecordToUserFirebase,
   USER_FIREBASE_CONFIG,
 } from '../lib/firebase';
 import {
   calculateDiscountPercent,
+  getLocalOrderEvents,
+  getLocalOrders,
   updateOrderStatusWithEvent,
 } from '../lib/orders';
 import { getOptimizedImageUrl } from '../lib/cloudinary';
@@ -58,33 +57,51 @@ import {
   OrderStatus,
   ORDER_STATUS_LABELS,
   Product,
+  Review,
   SiteSettings,
   UserProfile,
   VALID_STATUS_TRANSITIONS,
 } from '../types';
 
+const UPLOADED_FRONT_POSTER =
+  '/assets/aistudio/file_000000003fa4821191761d6e8721cedc_8068ff0c.png';
+
 const ADMIN_NAV_LINKS = [
   { to: '/admin', label: 'Dashboard Overview', icon: BarChart3 },
+  { to: '/admin/banners', label: 'Banners & Front Poster', icon: ImageIcon },
   { to: '/admin/products', label: 'Products Catalog', icon: Package },
   { to: '/admin/inventory', label: 'Stock & Inventory', icon: Boxes },
   { to: '/admin/categories', label: 'Categories', icon: FolderKanban },
   { to: '/admin/orders', label: 'Orders & Dispatch', icon: Truck },
-  { to: '/admin/customers', label: 'Customers', icon: Users },
-  { to: '/admin/banners', label: 'Banners & Hero', icon: ImageIcon },
   { to: '/admin/coupons', label: 'Coupons & Offers', icon: TicketPercent },
-  { to: '/admin/reviews', label: 'Reviews', icon: MessageSquare },
+  { to: '/admin/reviews', label: 'Customer Reviews', icon: MessageSquare },
+  { to: '/admin/customers', label: 'Customers', icon: Users },
   { to: '/admin/settings', label: 'Store & Firebase', icon: Settings },
 ];
 
 export const AdminLoginPage: React.FC = () => {
-  const { user, isAdmin, loginWithGoogle, enableAdminSession } = useStore();
+  const {
+    loginWithEmail,
+    loginWithGoogle,
+    enableAdminSession,
+  } = useStore();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (isAdmin) {
+  const [email, setEmail] = useState('admin@cartlane.in');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const handleEmailAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await loginWithEmail(email || 'admin@cartlane.in', password || 'admin123');
+      enableAdminSession();
       navigate('/admin');
+    } finally {
+      setBusy(false);
     }
-  }, [isAdmin, navigate]);
+  };
 
   const handleInstantAdminAccess = () => {
     enableAdminSession();
@@ -102,10 +119,10 @@ export const AdminLoginPage: React.FC = () => {
               <span>Cartlane Seller Hub</span>
             </div>
             <h1 className="text-2xl font-bold leading-snug">
-              Admin Console &amp; Firebase Control
+              Admin Console &amp; Full Store Control
             </h1>
             <p className="text-xs text-white/85 leading-relaxed">
-              Manage all 16 grooming products, Cloudinary images, Flipkart deal banners, coupons, and live orders connected to your Firebase project.
+              Control front hero banners, products, pricing, inventory, categories, coupons, reviews, orders, and store settings in real time.
             </p>
           </div>
 
@@ -123,60 +140,85 @@ export const AdminLoginPage: React.FC = () => {
         </div>
 
         {/* Right Login Actions */}
-        <div className="md:col-span-7 p-6 md:p-8 flex flex-col justify-between space-y-6">
+        <div className="md:col-span-7 p-6 md:p-8 flex flex-col justify-between space-y-5">
           <div className="space-y-4">
             <div>
               <h2 className="text-lg font-bold text-[#212121]">
-                Sign in to Cartlane Admin Panel
+                Admin Login (Email &amp; Password)
               </h2>
-              <p className="text-xs text-[#878787] mt-1">
-                Authenticate with Google ({BOOTSTRAP_ADMIN_EMAIL}) or use 1-Click Instant Admin Console Access to manage your store.
+              <p className="text-xs text-[#878787] mt-0.5">
+                Sign in with your admin email &amp; password or open the Admin Console with 1 click.
               </p>
             </div>
 
-            {user && !isAdmin && (
-              <div className="p-3 bg-[#FFF8E1] border border-[#FFE082] rounded-sm text-xs text-[#212121] space-y-1">
-                <p className="font-bold">Signed in as {user.email}</p>
-                <p className="text-[#565656]">
-                  Click &ldquo;Unlock Admin Console Now&rdquo; below to grant full administrator privileges for this session.
-                </p>
+            <form onSubmit={handleEmailAdminLogin} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#555555] mb-1">
+                  Admin Email
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-[#878787] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="admin@cartlane.in"
+                    className="w-full border border-[#D0D0D0] rounded-sm pl-9 pr-3 py-2.5 text-xs"
+                  />
+                </div>
               </div>
-            )}
 
-            <div className="space-y-3 pt-2">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#555555] mb-1">
+                  Admin Password
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-[#878787] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="password"
+                    required
+                    minLength={4}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter admin password"
+                    className="w-full border border-[#D0D0D0] rounded-sm pl-9 pr-3 py-2.5 text-xs"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={busy}
+                className="w-full py-3 px-4 bg-[#FB641B] hover:bg-[#e85812] text-white text-xs font-bold uppercase tracking-wider rounded-sm shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span>{busy ? 'Opening Admin Panel...' : 'Login with Email & Open Admin'}</span>
+              </button>
+            </form>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={handleInstantAdminAccess}
-                className="w-full py-3.5 px-4 bg-[#FB641B] hover:bg-[#e85812] text-white text-xs font-bold uppercase tracking-wider rounded-sm shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="py-2.5 px-3 bg-[#388E3C] hover:bg-[#2E7D32] text-white text-xs font-bold uppercase tracking-wider rounded-sm flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <KeyRound className="w-4 h-4" />
-                <span>Enter Admin Console (Instant Access)</span>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>1-Click Direct Admin</span>
               </button>
 
               <button
                 type="button"
                 onClick={async () => {
-                  const profile = await loginWithGoogle();
-                  if (profile) {
-                    enableAdminSession();
-                    navigate('/admin');
-                  }
+                  await loginWithGoogle();
+                  enableAdminSession();
+                  navigate('/admin');
                 }}
-                className="w-full py-3 px-4 bg-[#2874F0] hover:bg-[#1C5FD4] text-white text-xs font-bold uppercase tracking-wider rounded-sm shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="py-2.5 px-3 bg-[#2874F0] hover:bg-[#1C5FD4] text-white text-xs font-bold uppercase tracking-wider rounded-sm flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Sign In with Google Admin Account</span>
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Google Admin Login</span>
               </button>
-            </div>
-
-            <div className="p-3.5 bg-[#F5F7FA] border border-[#E0E0E0] rounded-sm space-y-1.5 text-[11px]">
-              <div className="flex items-center gap-1.5 font-bold text-[#2874F0]">
-                <Database className="w-3.5 h-3.5" />
-                <span>Firebase Realtime DB &amp; Firestore Integrated</span>
-              </div>
-              <p className="text-[#565656] font-mono-tabular break-all">
-                {USER_FIREBASE_CONFIG.databaseURL}
-              </p>
             </div>
           </div>
 
@@ -184,7 +226,7 @@ export const AdminLoginPage: React.FC = () => {
             <Link to="/" className="text-[#2874F0] font-bold hover:underline">
               ← Back to Cartlane Storefront
             </Link>
-            <span className="text-[#878787] font-mono-tabular">v2.4 Seller Hub</span>
+            <span className="text-[#878787] font-mono-tabular">Seller Hub Admin</span>
           </div>
         </div>
       </div>
@@ -196,8 +238,6 @@ export const AdminPortal: React.FC = () => {
   const {
     user,
     userProfile,
-    isAdmin,
-    authReady,
     isDatabaseLive,
     allAdminProducts,
     categories,
@@ -206,9 +246,18 @@ export const AdminPortal: React.FC = () => {
     reviews,
     settings,
     seedCatalogToFirestore,
-    enableAdminSession,
+    upsertProduct,
+    removeProduct,
+    upsertCategory,
+    removeCategory,
+    upsertBanner,
+    removeBanner,
+    upsertCoupon,
+    removeCoupon,
+    upsertReview,
+    removeReview,
+    saveSiteSettings,
     showToast,
-    logout,
   } = useStore();
 
   const location = useLocation();
@@ -217,6 +266,7 @@ export const AdminPortal: React.FC = () => {
 
   const [fsOrders, setFsOrders] = useState<Order[]>([]);
   const [rtdbOrders, setRtdbOrders] = useState<Order[]>([]);
+  const [localOrders, setLocalOrders] = useState<Order[]>(() => getLocalOrders());
   const [fsCustomers, setFsCustomers] = useState<UserProfile[]>([]);
   const [rtdbCustomers, setRtdbCustomers] = useState<UserProfile[]>([]);
   const [syncingSeed, setSyncingSeed] = useState(false);
@@ -234,12 +284,11 @@ export const AdminPortal: React.FC = () => {
 
   useEffect(() => {
     checkUserRtdbStatus().then(setRtdbStatus);
-  }, []);
+    setLocalOrders(getLocalOrders());
+  }, [location.pathname]);
 
   // Subscribe to Realtime Database orders & users (studio-9019379244-c807b)
   useEffect(() => {
-    if (!isAdmin) return;
-
     const unsubRtdbOrders = onValue(
       rtdbRef(rtdb, 'orders'),
       (snap) => {
@@ -266,11 +315,11 @@ export const AdminPortal: React.FC = () => {
       unsubRtdbOrders();
       unsubRtdbUsers();
     };
-  }, [isAdmin]);
+  }, []);
 
   // Subscribe to Firestore orders & users when authenticated
   useEffect(() => {
-    if (!authReady || !isAdmin || !user) return;
+    if (!user) return;
 
     const unsubOrders = onSnapshot(
       collection(db, 'orders'),
@@ -278,9 +327,7 @@ export const AdminPortal: React.FC = () => {
         const list = snap.docs.map((d) => d.data() as Order);
         setFsOrders(list);
       },
-      (err) => {
-        console.warn('Firestore orders listener notice:', err.message);
-      }
+      () => {}
     );
 
     const unsubUsers = onSnapshot(
@@ -289,81 +336,34 @@ export const AdminPortal: React.FC = () => {
         const list = snap.docs.map((d) => d.data() as UserProfile);
         setFsCustomers(list);
       },
-      (err) => {
-        console.warn('Firestore users listener notice:', err.message);
-      }
+      () => {}
     );
 
     return () => {
       unsubOrders();
       unsubUsers();
     };
-  }, [authReady, isAdmin, user]);
+  }, [user]);
 
   const allOrders = useMemo(() => {
     const map = new Map<string, Order>();
+    for (const o of localOrders) if (o?.id) map.set(o.id, o);
     for (const o of fsOrders) if (o?.id) map.set(o.id, o);
     for (const o of rtdbOrders) if (o?.id) map.set(o.id, o);
     return Array.from(map.values()).sort((a, b) =>
       (b.createdAt || '').localeCompare(a.createdAt || '')
     );
-  }, [fsOrders, rtdbOrders]);
+  }, [localOrders, fsOrders, rtdbOrders]);
 
   const allCustomers = useMemo(() => {
     const map = new Map<string, UserProfile>();
+    if (userProfile?.uid) map.set(userProfile.uid, userProfile);
     for (const u of fsCustomers) if (u?.uid) map.set(u.uid, u);
     for (const u of rtdbCustomers) if (u?.uid) map.set(u.uid, u);
     return Array.from(map.values()).sort((a, b) =>
       (b.createdAt || '').localeCompare(a.createdAt || '')
     );
-  }, [fsCustomers, rtdbCustomers]);
-
-  if (!authReady) {
-    return (
-      <div className="min-h-screen bg-[#F1F3F6] flex items-center justify-center text-xs font-bold uppercase tracking-wider text-[#2874F0]">
-        Loading Cartlane Seller Hub...
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <main className="min-h-screen bg-[#F1F3F6] flex items-center justify-center p-4">
-        <div className="max-w-lg w-full bg-white border border-[#E0E0E0] rounded-sm fk-card-shadow p-6 md:p-8 space-y-5">
-          <div className="flex items-center gap-2.5 text-[#2874F0]">
-            <ShieldCheck className="w-6 h-6" />
-            <h1 className="text-xl font-bold text-[#212121]">
-              Cartlane Admin Console Access
-            </h1>
-          </div>
-          <p className="text-xs text-[#565656] leading-relaxed">
-            Connected to Firebase Project <span className="font-mono-tabular font-bold text-[#212121]">{USER_FIREBASE_CONFIG.projectId}</span> ({USER_FIREBASE_CONFIG.databaseURL}). Unlock the Admin Console below to manage products, banners, coupons, orders, and store settings.
-          </p>
-          <div className="flex flex-wrap gap-3 pt-2">
-            <button
-              type="button"
-              onClick={enableAdminSession}
-              className="px-6 py-3 bg-[#FB641B] hover:bg-[#e85812] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
-            >
-              Unlock Admin Console (1-Click)
-            </button>
-            <Link
-              to="/admin/login"
-              className="px-5 py-3 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider rounded-sm"
-            >
-              Google Admin Sign-In
-            </Link>
-            <Link
-              to="/"
-              className="px-5 py-3 border border-[#D6D3D1] text-[#212121] text-xs font-bold uppercase tracking-wider rounded-sm"
-            >
-              Back to Storefront
-            </Link>
-          </div>
-        </div>
-      </main>
-    );
-  }
+  }, [userProfile, fsCustomers, rtdbCustomers]);
 
   const handleSyncCatalog = async () => {
     setSyncingSeed(true);
@@ -382,14 +382,14 @@ export const AdminPortal: React.FC = () => {
     <div className="min-h-screen bg-[#F1F3F6] flex flex-col">
       {/* Top Flipkart Seller Hub Blue Header */}
       <header className="bg-[#2874F0] text-white sticky top-0 z-40 shadow-sm">
-        <div className="max-w-[1440px] mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="max-w-[1440px] mx-auto px-3 md:px-6 h-14 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <Link to="/admin" className="flex flex-col leading-none">
               <span className="text-lg md:text-xl font-extrabold italic tracking-tight text-white">
                 {settings.brandName || 'Cartlane'}
               </span>
               <span className="text-[10px] font-bold italic text-[#FFE500] flex items-center gap-1">
-                Seller Hub <span className="text-white not-italic">Admin</span>
+                Seller Hub <span className="text-white not-italic">Admin Panel</span>
                 <Sparkles className="w-2.5 h-2.5 fill-[#FFE500] text-[#FFE500]" />
               </span>
             </Link>
@@ -399,7 +399,7 @@ export const AdminPortal: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
               disabled={syncingSeed}
@@ -408,7 +408,7 @@ export const AdminPortal: React.FC = () => {
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncingSeed ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">
-                {syncingSeed ? 'Syncing Firebase...' : 'Sync Data to Firebase'}
+                {syncingSeed ? 'Syncing Firebase...' : 'Sync All to Firebase'}
               </span>
               <span className="sm:hidden">{syncingSeed ? '...' : 'Sync DB'}</span>
             </button>
@@ -420,24 +420,16 @@ export const AdminPortal: React.FC = () => {
               <span>View Store</span>
               <ExternalLink className="w-3 h-3" />
             </Link>
-
-            <button
-              type="button"
-              onClick={logout}
-              className="px-3 py-1.5 border border-white/40 text-white text-[11px] font-bold uppercase tracking-wider rounded-sm hover:bg-white/10 cursor-pointer"
-            >
-              Logout
-            </button>
           </div>
         </div>
       </header>
 
       <div className="flex-1 flex flex-col lg:flex-row max-w-[1440px] w-full mx-auto">
         {/* Left Seller Hub Navigation Sidebar */}
-        <aside className="w-full lg:w-60 bg-[#172337] text-white shrink-0 flex flex-col justify-between">
-          <div className="p-3 lg:p-4">
+        <aside className="w-full lg:w-64 bg-[#172337] text-white shrink-0 flex flex-col justify-between">
+          <div className="p-2.5 lg:p-4">
             <p className="hidden lg:block text-[10px] font-bold uppercase tracking-widest text-[#878787] px-3 pb-2">
-              Store Management
+              Complete Store Control
             </p>
             <nav className="flex lg:flex-col gap-1 overflow-x-auto no-scrollbar">
               {ADMIN_NAV_LINKS.map((item) => {
@@ -467,44 +459,48 @@ export const AdminPortal: React.FC = () => {
           <div className="hidden lg:block p-4 border-t border-white/10 space-y-2 text-[11px] text-white/75">
             <div className="flex items-center gap-1.5 text-[#FFE500] font-bold">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Firebase RTDB Active</span>
+              <span>Firebase RTDB Live</span>
             </div>
             <p className="font-mono-tabular text-[10px] text-white/60 break-all">
               {USER_FIREBASE_CONFIG.databaseURL}
             </p>
             <p className="font-mono-tabular text-[10px] text-white/80 truncate pt-1">
-              Admin: {user?.email || userProfile?.email || BOOTSTRAP_ADMIN_EMAIL}
+              Admin: {userProfile?.email || user?.email || BOOTSTRAP_ADMIN_EMAIL}
             </p>
           </div>
         </aside>
 
         {/* Main Admin Workspace */}
-        <main className="flex-1 p-4 md:p-6 space-y-6 overflow-x-hidden">
-          {/* Firebase Config & Sync Banner */}
-          <div className="bg-white border border-[#E0E0E0] rounded-sm p-4 fk-card-shadow flex flex-col md:flex-row md:items-center justify-between gap-4 border-l-4 border-l-[#2874F0]">
+        <main className="flex-1 p-3 sm:p-5 md:p-6 space-y-6 overflow-x-hidden">
+          {/* Quick Control Bar */}
+          <div className="bg-white border border-[#E0E0E0] rounded-sm p-4 fk-card-shadow flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#2874F0]">
-                  Firebase Connected: {USER_FIREBASE_CONFIG.projectId}
+                  Admin Control Center · {USER_FIREBASE_CONFIG.projectId}
                 </span>
                 <span className="text-[11px] text-[#388E3C] font-bold">
                   · {isDatabaseLive ? 'Live Sync Active' : rtdbStatus.message}
                 </span>
               </div>
-              <p className="text-xs text-[#565656] font-mono-tabular break-all">
-                RTDB URL: {USER_FIREBASE_CONFIG.databaseURL}
+              <p className="text-xs text-[#565656]">
+                Every change to Banners, Products, Prices, Stock, Categories, Coupons, Orders, and Settings updates the storefront immediately.
               </p>
             </div>
-            <button
-              type="button"
-              disabled={syncingSeed}
-              onClick={handleSyncCatalog}
-              className="px-4 py-2.5 bg-[#2874F0] hover:bg-[#1C5FD4] text-white text-xs font-bold uppercase tracking-wider rounded-sm shrink-0 cursor-pointer transition-colors"
-            >
-              {syncingSeed
-                ? 'Syncing to Firebase...'
-                : 'Push All 16 Products & Settings to Firebase'}
-            </button>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <Link
+                to="/admin/banners"
+                className="px-3.5 py-2 bg-[#FB641B] hover:bg-[#e85812] text-white text-xs font-bold uppercase tracking-wider rounded-sm"
+              >
+                Manage Front Banner
+              </Link>
+              <Link
+                to="/admin/products/new"
+                className="px-3.5 py-2 bg-[#2874F0] hover:bg-[#1C5FD4] text-white text-xs font-bold uppercase tracking-wider rounded-sm"
+              >
+                + Add Product
+              </Link>
+            </div>
           </div>
 
           {/* Route Dispatcher */}
@@ -513,6 +509,8 @@ export const AdminPortal: React.FC = () => {
               orders={allOrders}
               customers={allCustomers}
               products={allAdminProducts}
+              banners={banners}
+              coupons={coupons}
               onSeed={handleSyncCatalog}
               syncingSeed={syncingSeed}
             />
@@ -523,7 +521,8 @@ export const AdminPortal: React.FC = () => {
               products={allAdminProducts}
               onEdit={(id) => navigate(`/admin/products/${id}`)}
               onCreate={() => navigate('/admin/products/new')}
-              showToast={showToast}
+              onUpsert={upsertProduct}
+              onRemove={removeProduct}
             />
           )}
 
@@ -534,6 +533,7 @@ export const AdminPortal: React.FC = () => {
               products={allAdminProducts}
               categories={categories}
               onBack={() => navigate('/admin/products')}
+              onUpsert={upsertProduct}
               showToast={showToast}
             />
           )}
@@ -541,14 +541,15 @@ export const AdminPortal: React.FC = () => {
           {path === '/admin/inventory' && (
             <AdminInventorySection
               products={allAdminProducts}
-              showToast={showToast}
+              onUpsert={upsertProduct}
             />
           )}
 
           {(path === '/admin/categories' || path === '/admin/collections') && (
             <AdminCategoriesSection
               categories={categories}
-              showToast={showToast}
+              onUpsert={upsertCategory}
+              onRemove={removeCategory}
             />
           )}
 
@@ -567,6 +568,7 @@ export const AdminPortal: React.FC = () => {
                 userProfile?.displayName || user?.email || 'Cartlane Store Admin'
               }
               onBack={() => navigate('/admin/orders')}
+              onOrderUpdated={() => setLocalOrders(getLocalOrders())}
               showToast={showToast}
             />
           )}
@@ -581,6 +583,8 @@ export const AdminPortal: React.FC = () => {
           {(path === '/admin/banners' || path === '/admin/homepage') && (
             <AdminBannersSection
               banners={banners}
+              onUpsert={upsertBanner}
+              onRemove={removeBanner}
               showToast={showToast}
             />
           )}
@@ -588,7 +592,8 @@ export const AdminPortal: React.FC = () => {
           {path === '/admin/coupons' && (
             <AdminCouponsSection
               coupons={coupons}
-              showToast={showToast}
+              onUpsert={upsertCoupon}
+              onRemove={removeCoupon}
             />
           )}
 
@@ -596,14 +601,15 @@ export const AdminPortal: React.FC = () => {
             <AdminReviewsSection
               reviews={reviews}
               products={allAdminProducts}
-              showToast={showToast}
+              onUpsert={upsertReview}
+              onRemove={removeReview}
             />
           )}
 
           {(path === '/admin/settings' || path === '/admin/shipping') && (
             <AdminSettingsSection
               settings={settings}
-              showToast={showToast}
+              onSave={saveSiteSettings}
             />
           )}
         </main>
@@ -613,15 +619,17 @@ export const AdminPortal: React.FC = () => {
 };
 
 /* ============================================================================
- * 1. ADMIN OVERVIEW DASHBOARD (FLIPKART SELLER HUB STYLE)
+ * 1. ADMIN OVERVIEW DASHBOARD (COMPLETE CONTROL TILES + LIVE KPIs)
  * ==========================================================================*/
 const AdminOverviewSection: React.FC<{
   orders: Order[];
   customers: UserProfile[];
   products: Product[];
+  banners: Banner[];
+  coupons: Coupon[];
   onSeed: () => void;
   syncingSeed: boolean;
-}> = ({ orders, customers, products, onSeed, syncingSeed }) => {
+}> = ({ orders, customers, products, banners, coupons, onSeed, syncingSeed }) => {
   const awaitingProcessing = orders.filter((o) =>
     [
       'ORDER_PLACED',
@@ -641,38 +649,94 @@ const AdminOverviewSection: React.FC<{
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-5 rounded-sm fk-card-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
-            Cartlane Seller Hub Overview
+      {/* Front Banner Poster Preview Card */}
+      <div className="bg-white p-5 rounded-sm fk-card-shadow grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+        <div className="lg:col-span-5 rounded-sm overflow-hidden border border-[#E0E0E0] bg-[#09358A]">
+          <img
+            src={banners[0]?.image || UPLOADED_FRONT_POSTER}
+            alt={banners[0]?.title || 'Front Hero Banner'}
+            referrerPolicy="no-referrer"
+            className="w-full aspect-16/9 object-contain"
+          />
+        </div>
+        <div className="lg:col-span-7 space-y-3">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#388E3C]">
+            Active #1 Front Hero Banner on Homepage
+          </span>
+          <h2 className="text-lg sm:text-xl font-bold text-[#212121]">
+            {banners[0]?.title || 'Up To 50% Off Best Skincare & Grooming Products'}
+          </h2>
+          <p className="text-xs text-[#565656] leading-relaxed">
+            {banners[0]?.subtitle ||
+              'Your uploaded promotional poster is live as the #1 Front Banner on the Cartlane storefront.'}
           </p>
-          <h1 className="text-xl md:text-2xl font-bold text-[#212121] mt-0.5">
-            Storefront &amp; Fulfillment Performance
-          </h1>
+          <div className="flex flex-wrap gap-2.5 pt-1">
+            <Link
+              to="/admin/banners"
+              className="px-4 py-2 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider rounded-sm"
+            >
+              Edit / Add Banners ({banners.length})
+            </Link>
+            <Link
+              to="/"
+              className="px-4 py-2 border border-[#2874F0] text-[#2874F0] text-xs font-bold uppercase tracking-wider rounded-sm"
+            >
+              View Live on Homepage →
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2.5">
-          <Link
-            to="/admin/products/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add New Product</span>
-          </Link>
-          <button
-            type="button"
-            disabled={syncingSeed}
-            onClick={onSeed}
-            className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#2874F0] text-[#2874F0] text-xs font-bold uppercase tracking-wider rounded-sm hover:bg-[#F5F8FF] cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${syncingSeed ? 'animate-spin' : ''}`} />
-            <span>Sync Default Catalog</span>
-          </button>
-        </div>
+      </div>
+
+      {/* Quick Module Action Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link
+          to="/admin/products"
+          className="p-4 bg-white rounded-sm fk-card-shadow hover:border-[#2874F0] border border-transparent transition-all"
+        >
+          <Package className="w-5 h-5 text-[#2874F0]" />
+          <p className="text-sm font-bold text-[#212121] mt-2">
+            Products ({products.length})
+          </p>
+          <p className="text-[11px] text-[#878787]">Add, edit, or delete items</p>
+        </Link>
+
+        <Link
+          to="/admin/banners"
+          className="p-4 bg-white rounded-sm fk-card-shadow hover:border-[#2874F0] border border-transparent transition-all"
+        >
+          <ImageIcon className="w-5 h-5 text-[#FB641B]" />
+          <p className="text-sm font-bold text-[#212121] mt-2">
+            Banners ({banners.length})
+          </p>
+          <p className="text-[11px] text-[#878787]">Front poster &amp; hero slides</p>
+        </Link>
+
+        <Link
+          to="/admin/orders"
+          className="p-4 bg-white rounded-sm fk-card-shadow hover:border-[#2874F0] border border-transparent transition-all"
+        >
+          <Truck className="w-5 h-5 text-[#388E3C]" />
+          <p className="text-sm font-bold text-[#212121] mt-2">
+            Orders ({orders.length})
+          </p>
+          <p className="text-[11px] text-[#878787]">Dispatch &amp; live tracking</p>
+        </Link>
+
+        <Link
+          to="/admin/coupons"
+          className="p-4 bg-white rounded-sm fk-card-shadow hover:border-[#2874F0] border border-transparent transition-all"
+        >
+          <TicketPercent className="w-5 h-5 text-[#2874F0]" />
+          <p className="text-sm font-bold text-[#212121] mt-2">
+            Coupons ({coupons.length})
+          </p>
+          <p className="text-[11px] text-[#878787]">Discount codes &amp; offers</p>
+        </Link>
       </div>
 
       {/* 6 Real Database KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="p-5 bg-white rounded-sm fk-card-shadow border-t-4 border-t-[#388E3C]">
+        <div className="p-5 bg-white rounded-sm fk-card-shadow">
           <p className="text-xs font-bold uppercase tracking-wider text-[#878787]">
             Gross Order Revenue
           </p>
@@ -684,7 +748,7 @@ const AdminOverviewSection: React.FC<{
           </p>
         </div>
 
-        <div className="p-5 bg-white rounded-sm fk-card-shadow border-t-4 border-t-[#FB641B]">
+        <div className="p-5 bg-white rounded-sm fk-card-shadow">
           <p className="text-xs font-bold uppercase tracking-wider text-[#878787]">
             Orders Pending Dispatch
           </p>
@@ -696,7 +760,7 @@ const AdminOverviewSection: React.FC<{
           </p>
         </div>
 
-        <div className="p-5 bg-white rounded-sm fk-card-shadow border-t-4 border-t-[#2874F0]">
+        <div className="p-5 bg-white rounded-sm fk-card-shadow">
           <p className="text-xs font-bold uppercase tracking-wider text-[#878787]">
             Active Catalog Listings
           </p>
@@ -716,7 +780,7 @@ const AdminOverviewSection: React.FC<{
             {customers.length}
           </p>
           <p className="text-xs text-[#565656] mt-1">
-            Synced customer profiles in `/users`
+            Email/Password &amp; Google accounts
           </p>
         </div>
 
@@ -737,28 +801,27 @@ const AdminOverviewSection: React.FC<{
         <div className="p-5 bg-white rounded-sm fk-card-shadow flex flex-col justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#2874F0]">
-              Firebase Realtime DB Config
+              Store &amp; Firebase Sync
             </p>
             <p className="text-xs font-mono-tabular text-[#212121] font-bold mt-1">
               {USER_FIREBASE_CONFIG.projectId}
             </p>
-            <p className="text-[11px] text-[#878787] truncate">
-              {USER_FIREBASE_CONFIG.authDomain}
-            </p>
           </div>
-          <div className="flex gap-2 pt-3">
+          <div className="flex flex-wrap gap-2 pt-3">
             <Link
               to="/admin/settings"
               className="px-3 py-1.5 bg-[#2874F0] text-white text-[11px] font-bold uppercase tracking-wider rounded-sm"
             >
-              Store &amp; DB Settings
+              Store Settings
             </Link>
-            <Link
-              to="/admin/banners"
-              className="px-3 py-1.5 border border-[#D6D3D1] text-[#212121] text-[11px] font-bold uppercase tracking-wider rounded-sm"
+            <button
+              type="button"
+              disabled={syncingSeed}
+              onClick={onSeed}
+              className="px-3 py-1.5 border border-[#D6D3D1] text-[#212121] text-[11px] font-bold uppercase tracking-wider rounded-sm cursor-pointer"
             >
-              Edit Banners
-            </Link>
+              Sync Catalog
+            </button>
           </div>
         </div>
       </div>
@@ -767,7 +830,7 @@ const AdminOverviewSection: React.FC<{
       <div className="bg-white rounded-sm fk-card-shadow p-5 space-y-4">
         <div className="flex items-center justify-between border-b border-[#F0F0F0] pb-3">
           <h2 className="text-base md:text-lg font-bold text-[#212121]">
-            Recent Customer Orders
+            Recent Customer Orders ({orders.length})
           </h2>
           <Link
             to="/admin/orders"
@@ -838,14 +901,15 @@ const AdminOverviewSection: React.FC<{
 };
 
 /* ============================================================================
- * 2. ADMIN PRODUCTS LIST & EDITOR (SYNCED TO FIRESTORE + RTDB)
+ * 2. ADMIN PRODUCTS LIST & EDITOR (FULL ADD / EDIT / DELETE)
  * ==========================================================================*/
 const AdminProductsListSection: React.FC<{
   products: Product[];
   onEdit: (id: string) => void;
   onCreate: () => void;
-  showToast: (t: string, type?: 'success' | 'error' | 'info') => void;
-}> = ({ products, onEdit, onCreate, showToast }) => {
+  onUpsert: (product: Product) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
+}> = ({ products, onEdit, onCreate, onUpsert, onRemove }) => {
   const [searchQ, setSearchQ] = useState('');
 
   const filtered = useMemo(() => {
@@ -860,28 +924,11 @@ const AdminProductsListSection: React.FC<{
   }, [products, searchQ]);
 
   const handleStatusChange = async (product: Product, nextStatus: Product['status']) => {
-    const updated: Product = {
+    await onUpsert({
       ...product,
       status: nextStatus,
       updatedAt: new Date().toISOString(),
-    };
-    await syncRecordToUserFirebase('products', product.id, updated);
-    try {
-      await setDoc(doc(db, 'products', product.id), updated);
-    } catch {
-      // Synced to RTDB
-    }
-    showToast(`Updated "${product.name}" status to ${nextStatus}.`);
-  };
-
-  const handleDeleteProduct = async (product: Product) => {
-    await deleteRecordFromUserFirebase('products', product.id);
-    try {
-      await deleteDoc(doc(db, 'products', product.id));
-    } catch {
-      // ignore
-    }
-    showToast(`Removed "${product.name}" from Firebase catalog.`, 'info');
+    });
   };
 
   return (
@@ -984,7 +1031,7 @@ const AdminProductsListSection: React.FC<{
                   </Link>
                   <button
                     type="button"
-                    onClick={() => handleDeleteProduct(prod)}
+                    onClick={() => onRemove(prod.id)}
                     className="px-2 py-1 text-red-600 hover:bg-red-50 rounded-sm cursor-pointer"
                     title="Delete Product"
                   >
@@ -1005,8 +1052,9 @@ const AdminProductEditorSection: React.FC<{
   products: Product[];
   categories: Category[];
   onBack: () => void;
+  onUpsert: (product: Product) => Promise<void>;
   showToast: (t: string, type?: 'success' | 'error' | 'info') => void;
-}> = ({ productId, products, categories, onBack, showToast }) => {
+}> = ({ productId, products, categories, onBack, onUpsert, showToast }) => {
   const existing = products.find((p) => p.id === productId);
 
   const [name, setName] = useState(existing?.name || '');
@@ -1124,13 +1172,7 @@ const AdminProductEditorSection: React.FC<{
 
     setSaving(true);
     try {
-      await syncRecordToUserFirebase('products', id, record);
-      try {
-        await setDoc(doc(db, 'products', id), record);
-      } catch {
-        // Synced to RTDB
-      }
-      showToast(`Saved product "${record.name}" to Firebase!`);
+      await onUpsert(record);
       onBack();
     } finally {
       setSaving(false);
@@ -1163,7 +1205,7 @@ const AdminProductEditorSection: React.FC<{
           disabled={saving}
           className="px-6 py-2.5 bg-[#FB641B] hover:bg-[#e85812] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
         >
-          {saving ? 'Saving to Firebase...' : 'Save Product'}
+          {saving ? 'Saving...' : 'Save Product'}
         </button>
       </div>
 
@@ -1437,7 +1479,7 @@ const AdminProductEditorSection: React.FC<{
 
           <div className="bg-white rounded-sm fk-card-shadow p-6 space-y-4">
             <h2 className="text-base font-bold text-[#212121]">
-              Visibility &amp; Flipkart Storefront Tags
+              Visibility &amp; Storefront Tags
             </h2>
 
             <div>
@@ -1493,22 +1535,15 @@ const AdminProductEditorSection: React.FC<{
  * ==========================================================================*/
 const AdminInventorySection: React.FC<{
   products: Product[];
-  showToast: (t: string, type?: 'success' | 'error' | 'info') => void;
-}> = ({ products, showToast }) => {
+  onUpsert: (product: Product) => Promise<void>;
+}> = ({ products, onUpsert }) => {
   const handleQuickStockUpdate = async (product: Product, newStock: number) => {
     const clamped = Math.max(0, newStock);
-    const updated: Product = {
+    await onUpsert({
       ...product,
       stock: clamped,
       updatedAt: new Date().toISOString(),
-    };
-    await syncRecordToUserFirebase('products', product.id, updated);
-    try {
-      await setDoc(doc(db, 'products', product.id), updated);
-    } catch {
-      // synced via RTDB
-    }
-    showToast(`Stock for "${product.name}" updated to ${clamped} units.`);
+    });
   };
 
   return (
@@ -1590,42 +1625,48 @@ const AdminInventorySection: React.FC<{
 };
 
 /* ============================================================================
- * 4. ADMIN CATEGORIES SECTION
+ * 4. ADMIN CATEGORIES SECTION (ADD / EDIT / DELETE)
  * ==========================================================================*/
 const AdminCategoriesSection: React.FC<{
   categories: Category[];
-  showToast: (t: string, type?: 'success' | 'error' | 'info') => void;
-}> = ({ categories, showToast }) => {
+  onUpsert: (category: Category) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
+}> = ({ categories, onUpsert, onRemove }) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState(categories[0]?.image || '');
 
-  const handleAddCategory = async (e: React.FormEvent) => {
+  const handleSelectEdit = (cat: Category) => {
+    setEditingId(cat.id);
+    setName(cat.name);
+    setSlug(cat.slug);
+    setDescription(cat.description);
+    setImage(cat.image);
+  };
+
+  const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !slug.trim()) return;
-    const id = `cat_${Date.now()}`;
+    const id = editingId || `cat_${Date.now()}`;
     const now = new Date().toISOString();
+    const existing = categories.find((c) => c.id === editingId);
     const record: Category = {
       id,
       name: name.trim().slice(0, 80),
       slug: slug.trim().toLowerCase().slice(0, 100),
       description: description.trim().slice(0, 400),
       image: image.slice(0, 1500),
-      order: categories.length + 1,
-      createdAt: now,
+      order: existing?.order || categories.length + 1,
+      createdAt: existing?.createdAt || now,
       updatedAt: now,
     };
-    await syncRecordToUserFirebase('categories', id, record);
-    try {
-      await setDoc(doc(db, 'categories', id), record);
-    } catch {
-      // synced via RTDB
-    }
+    await onUpsert(record);
+    setEditingId(null);
     setName('');
     setSlug('');
     setDescription('');
-    showToast(`Category "${record.name}" saved to Firebase.`);
   };
 
   return (
@@ -1640,19 +1681,38 @@ const AdminCategoriesSection: React.FC<{
           {categories.map((cat) => (
             <div
               key={cat.id}
-              className="p-4 bg-white rounded-sm fk-card-shadow flex gap-4 items-center"
+              className="p-4 bg-white rounded-sm fk-card-shadow flex gap-3 items-center justify-between"
             >
-              <img
-                src={getOptimizedImageUrl(cat.image, 160)}
-                alt={cat.name}
-                referrerPolicy="no-referrer"
-                className="w-16 h-16 object-cover bg-[#F8F9FA] rounded-sm border border-[#E0E0E0] shrink-0"
-              />
-              <div>
-                <p className="text-sm font-bold text-[#212121]">{cat.name}</p>
-                <p className="text-xs font-mono-tabular text-[#2874F0]">
-                  /collections/{cat.slug}
-                </p>
+              <div className="flex items-center gap-3 min-w-0">
+                <img
+                  src={getOptimizedImageUrl(cat.image, 160)}
+                  alt={cat.name}
+                  referrerPolicy="no-referrer"
+                  className="w-14 h-14 object-cover bg-[#F8F9FA] rounded-sm border border-[#E0E0E0] shrink-0"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#212121] truncate">{cat.name}</p>
+                  <p className="text-xs font-mono-tabular text-[#2874F0] truncate">
+                    /collections/{cat.slug}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleSelectEdit(cat)}
+                  className="px-2.5 py-1 bg-[#2874F0] text-white text-xs font-bold rounded-sm cursor-pointer"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemove(cat.id)}
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-sm cursor-pointer"
+                  title="Delete Category"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))}
@@ -1660,19 +1720,37 @@ const AdminCategoriesSection: React.FC<{
       </div>
 
       <form
-        onSubmit={handleAddCategory}
+        onSubmit={handleSaveCategory}
         className="lg:col-span-5 bg-white rounded-sm fk-card-shadow p-6 space-y-4 self-start"
       >
-        <h2 className="text-lg font-bold text-[#212121]">
-          Add Category Vertical
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-[#212121]">
+            {editingId ? 'Edit Category' : 'Add Category Vertical'}
+          </h2>
+          {editingId && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingId(null);
+                setName('');
+                setSlug('');
+                setDescription('');
+              }}
+              className="text-xs text-[#2874F0] font-bold hover:underline cursor-pointer"
+            >
+              + Create New Instead
+            </button>
+          )}
+        </div>
         <input
           required
           placeholder="Category Name (e.g. Shaving Essentials)"
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+            if (!editingId) {
+              setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+            }
           }}
           className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
         />
@@ -1696,11 +1774,17 @@ const AdminCategoriesSection: React.FC<{
           currentUrl={image}
           onUploaded={({ url }) => setImage(url)}
         />
+        <input
+          placeholder="Or paste Image URL"
+          value={image}
+          onChange={(e) => setImage(e.target.value)}
+          className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
+        />
         <button
           type="submit"
           className="w-full py-3 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
         >
-          Save Category
+          {editingId ? 'Update Category' : 'Save Category'}
         </button>
       </form>
     </div>
@@ -1827,10 +1911,11 @@ const AdminOrderDetailSection: React.FC<{
   orders: Order[];
   adminName: string;
   onBack: () => void;
+  onOrderUpdated: () => void;
   showToast: (t: string, type?: 'success' | 'error' | 'info') => void;
-}> = ({ orderId, orders, adminName, onBack, showToast }) => {
+}> = ({ orderId, orders, adminName, onBack, onOrderUpdated, showToast }) => {
   const order = orders.find((o) => o.id === orderId);
-  const [events, setEvents] = useState<OrderEvent[]>([]);
+  const [events, setEvents] = useState<OrderEvent[]>(() => getLocalOrderEvents(orderId));
 
   const allowedTransitions = useMemo(
     () => (order ? VALID_STATUS_TRANSITIONS[order.status] || [] : []),
@@ -1866,10 +1951,14 @@ const AdminOrderDetailSection: React.FC<{
 
   useEffect(() => {
     if (!orderId) return;
+    setEvents(getLocalOrderEvents(orderId));
+
     const unsubFs = onSnapshot(
       collection(db, 'orders', orderId, 'events'),
       (snap) => {
-        setEvents(snap.docs.map((d) => d.data() as OrderEvent));
+        if (!snap.empty) {
+          setEvents(snap.docs.map((d) => d.data() as OrderEvent));
+        }
       },
       () => {}
     );
@@ -1924,6 +2013,8 @@ const AdminOrderDetailSection: React.FC<{
         paymentStatus,
       });
 
+      setEvents(getLocalOrderEvents(order.id));
+      onOrderUpdated();
       setEventMessage('');
       showToast(`Order ${order.id} updated to ${ORDER_STATUS_LABELS[nextStatus]}.`);
     } catch (err) {
@@ -2095,7 +2186,7 @@ const AdminOrderDetailSection: React.FC<{
           disabled={saving}
           className="px-6 py-3 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
         >
-          {saving ? 'Saving Update...' : 'Save Order Update & Sync to Firebase'}
+          {saving ? 'Saving Update...' : 'Save Order Update & Sync'}
         </button>
       </form>
 
@@ -2163,27 +2254,67 @@ const AdminCustomersSection: React.FC<{
 };
 
 /* ============================================================================
- * 7. ADMIN BANNERS & HOMEPAGE SECTION
+ * 7. ADMIN BANNERS & FRONT POSTER SECTION (ADD / EDIT / DELETE / RESTORE)
  * ==========================================================================*/
 const AdminBannersSection: React.FC<{
   banners: Banner[];
+  onUpsert: (banner: Banner) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
   showToast: (t: string, type?: 'success' | 'error' | 'info') => void;
-}> = ({ banners, showToast }) => {
+}> = ({ banners, onUpsert, onRemove, showToast }) => {
   const [editingBanner, setEditingBanner] = useState<Banner>(
     banners[0] || {
-      id: 'banner_hero_1',
-      title: '',
-      subtitle: '',
-      ctaText: 'Shop Now',
+      id: 'banner_hero_poster_main',
+      title: 'Up To 50% Off Best Skincare & Grooming Products',
+      subtitle:
+        'Upgrade your daily grooming ritual with Cartlane luxury Charcoal Face Wash, Vitamin C Serum, Beard Growth Oil & Gift Kits.',
+      ctaText: 'Shop Up To 50% Off',
       ctaLink: '/products',
-      image: '',
+      image: UPLOADED_FRONT_POSTER,
       placement: 'hero',
       active: true,
-      order: 1,
+      order: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
   );
+
+  const handleCreateNewBanner = () => {
+    const now = new Date().toISOString();
+    setEditingBanner({
+      id: `banner_${Date.now()}`,
+      title: 'New Promotional Offer Banner',
+      subtitle: 'Flat 40% Off across all Men Grooming & Fragrance Combos',
+      ctaText: 'Shop Now',
+      ctaLink: '/products',
+      image: UPLOADED_FRONT_POSTER,
+      placement: 'hero',
+      active: true,
+      order: banners.length,
+      createdAt: now,
+      updatedAt: now,
+    });
+  };
+
+  const handleUseUploadedPoster = async () => {
+    const now = new Date().toISOString();
+    const posterBanner: Banner = {
+      id: 'banner_hero_poster_main',
+      title: 'Up To 50% Off Best Skincare & Grooming Products',
+      subtitle:
+        'Upgrade your daily grooming ritual with Cartlane luxury Charcoal Face Wash, Vitamin C Serum, Beard Growth Oil & Gift Kits.',
+      ctaText: 'Shop Up To 50% Off',
+      ctaLink: '/products',
+      image: UPLOADED_FRONT_POSTER,
+      placement: 'hero',
+      active: true,
+      order: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setEditingBanner(posterBanner);
+    await onUpsert(posterBanner);
+  };
 
   const handleSaveBanner = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2195,57 +2326,148 @@ const AdminBannersSection: React.FC<{
       ctaText: editingBanner.ctaText.slice(0, 50),
       ctaLink: editingBanner.ctaLink.slice(0, 200),
       image: editingBanner.image.slice(0, 1500),
+      order: Number(editingBanner.order) || 0,
       updatedAt: now,
     };
-    await syncRecordToUserFirebase('banners', record.id, record);
-    try {
-      await setDoc(doc(db, 'banners', record.id), record);
-    } catch {
-      // synced via RTDB
-    }
-    showToast(`Banner "${record.title}" saved to Firebase!`);
+    await onUpsert(record);
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-6 space-y-4">
-        <div className="bg-white p-5 rounded-sm fk-card-shadow">
-          <h1 className="text-xl font-bold text-[#212121]">
-            Homepage &amp; Promotional Banners
-          </h1>
+        <div className="bg-white p-5 rounded-sm fk-card-shadow flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-[#212121]">
+              Front Hero &amp; Promo Banners ({banners.length})
+            </h1>
+            <p className="text-xs text-[#878787]">
+              Order 0 appears first on the storefront homepage.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleUseUploadedPoster}
+              className="px-3 py-2 bg-[#388E3C] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
+            >
+              Set Uploaded Poster #1
+            </button>
+            <button
+              type="button"
+              onClick={handleCreateNewBanner}
+              className="px-3 py-2 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer inline-flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Banner</span>
+            </button>
+          </div>
         </div>
+
         {banners.map((b) => (
           <div
             key={b.id}
             onClick={() => setEditingBanner(b)}
-            className={`cursor-pointer p-4 border rounded-sm bg-white fk-card-shadow flex gap-4 items-center ${
-              editingBanner.id === b.id ? 'border-[#2874F0] ring-1 ring-[#2874F0]' : 'border-[#E0E0E0]'
+            className={`cursor-pointer p-4 border rounded-sm bg-white fk-card-shadow flex gap-4 items-center justify-between ${
+              editingBanner.id === b.id
+                ? 'border-[#2874F0] ring-1 ring-[#2874F0]'
+                : 'border-[#E0E0E0]'
             }`}
           >
-            <img
-              src={getOptimizedImageUrl(b.image, 200)}
-              alt={b.title}
-              referrerPolicy="no-referrer"
-              className="w-24 h-16 object-cover bg-[#172337] rounded-sm shrink-0"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
-                {b.placement} Banner
-              </p>
-              <p className="text-sm font-bold text-[#212121] truncate">{b.title}</p>
-              <p className="text-xs text-[#878787] truncate">{b.subtitle}</p>
+            <div className="flex items-center gap-3.5 min-w-0">
+              <img
+                src={getOptimizedImageUrl(b.image, 240)}
+                alt={b.title}
+                referrerPolicy="no-referrer"
+                className="w-28 h-16 object-contain bg-[#09358A] rounded-sm shrink-0"
+              />
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider text-[#2874F0] font-bold">
+                  {b.placement} · Order #{b.order} · {b.active ? 'Active' : 'Hidden'}
+                </p>
+                <p className="text-sm font-bold text-[#212121] truncate">{b.title}</p>
+                <p className="text-xs text-[#878787] truncate">{b.subtitle}</p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(b.id);
+              }}
+              className="p-2 text-red-600 hover:bg-red-50 rounded-sm shrink-0 cursor-pointer"
+              title="Delete Banner"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         ))}
       </div>
 
       <form
         onSubmit={handleSaveBanner}
-        className="lg:col-span-6 bg-white rounded-sm fk-card-shadow p-6 space-y-4"
+        className="lg:col-span-6 bg-white rounded-sm fk-card-shadow p-6 space-y-4 self-start"
       >
-        <h2 className="text-lg font-bold text-[#212121]">
-          Edit Banner ({editingBanner.id})
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-[#212121]">
+            Edit Banner ({editingBanner.id})
+          </h2>
+          <label className="flex items-center gap-2 text-xs font-bold text-[#212121] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={editingBanner.active}
+              onChange={(e) =>
+                setEditingBanner({ ...editingBanner, active: e.target.checked })
+              }
+            />
+            <span>Active on Homepage</span>
+          </label>
+        </div>
+
+        <div className="rounded-sm overflow-hidden border border-[#E0E0E0] bg-[#09358A]">
+          <img
+            src={editingBanner.image || UPLOADED_FRONT_POSTER}
+            alt={editingBanner.title}
+            referrerPolicy="no-referrer"
+            className="w-full aspect-16/9 object-contain"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold mb-1">Placement</label>
+            <select
+              value={editingBanner.placement}
+              onChange={(e) =>
+                setEditingBanner({
+                  ...editingBanner,
+                  placement: e.target.value as 'hero' | 'promo',
+                })
+              }
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs bg-white font-semibold"
+            >
+              <option value="hero">Front Hero Carousel</option>
+              <option value="promo">Mid-Page Promo Tile</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1">
+              Slide Order (0 = First)
+            </label>
+            <input
+              type="number"
+              value={editingBanner.order}
+              onChange={(e) =>
+                setEditingBanner({
+                  ...editingBanner,
+                  order: Number(e.target.value),
+                })
+              }
+              className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
+            />
+          </div>
+        </div>
+
         <div>
           <label className="block text-xs font-bold mb-1">Headline *</label>
           <input
@@ -2257,11 +2479,12 @@ const AdminBannersSection: React.FC<{
             className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
           />
         </div>
+
         <div>
           <label className="block text-xs font-bold mb-1">Subtitle *</label>
           <textarea
             required
-            rows={3}
+            rows={2}
             value={editingBanner.subtitle}
             onChange={(e) =>
               setEditingBanner({ ...editingBanner, subtitle: e.target.value })
@@ -2269,6 +2492,7 @@ const AdminBannersSection: React.FC<{
             className="w-full border border-[#D6D3D1] rounded-sm p-3 text-xs"
           />
         </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold mb-1">CTA Label</label>
@@ -2294,8 +2518,37 @@ const AdminBannersSection: React.FC<{
           </div>
         </div>
 
+        <div>
+          <label className="block text-xs font-bold mb-1">
+            Banner Image Path or URL *
+          </label>
+          <div className="flex gap-2">
+            <input
+              required
+              value={editingBanner.image}
+              onChange={(e) =>
+                setEditingBanner({ ...editingBanner, image: e.target.value })
+              }
+              className="flex-1 border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs font-mono-tabular"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setEditingBanner({
+                  ...editingBanner,
+                  image: UPLOADED_FRONT_POSTER,
+                });
+                showToast('Selected uploaded skincare poster image.');
+              }}
+              className="px-3 py-2 bg-[#2874F0] text-white text-xs font-bold rounded-sm shrink-0 cursor-pointer"
+            >
+              Use Poster
+            </button>
+          </div>
+        </div>
+
         <CloudinaryUploader
-          label="Banner Visual (Cloudinary Upload)"
+          label="Or Upload New Banner Image (Cloudinary)"
           currentUrl={editingBanner.image}
           currentPublicId={editingBanner.publicId}
           onUploaded={({ url, publicId }) =>
@@ -2307,7 +2560,7 @@ const AdminBannersSection: React.FC<{
           type="submit"
           className="w-full py-3 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
         >
-          Save Banner Changes
+          Save Banner to Storefront
         </button>
       </form>
     </div>
@@ -2315,12 +2568,13 @@ const AdminBannersSection: React.FC<{
 };
 
 /* ============================================================================
- * 8. ADMIN COUPONS SECTION
+ * 8. ADMIN COUPONS SECTION (CREATE / TOGGLE / DELETE)
  * ==========================================================================*/
 const AdminCouponsSection: React.FC<{
   coupons: Coupon[];
-  showToast: (t: string, type?: 'success' | 'error' | 'info') => void;
-}> = ({ coupons, showToast }) => {
+  onUpsert: (coupon: Coupon) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
+}> = ({ coupons, onUpsert, onRemove }) => {
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
@@ -2351,15 +2605,9 @@ const AdminCouponsSection: React.FC<{
       createdAt: now,
       updatedAt: now,
     };
-    await syncRecordToUserFirebase('coupons', id, record);
-    try {
-      await setDoc(doc(db, 'coupons', id), record);
-    } catch {
-      // synced via RTDB
-    }
+    await onUpsert(record);
     setCode('');
     setDescription('');
-    showToast(`Coupon ${record.code} saved to Firebase!`);
   };
 
   return (
@@ -2374,7 +2622,7 @@ const AdminCouponsSection: React.FC<{
           {coupons.map((c) => (
             <div
               key={c.id}
-              className="p-4 bg-white rounded-sm fk-card-shadow flex items-center justify-between border-l-4 border-l-[#388E3C]"
+              className="p-4 bg-white rounded-sm fk-card-shadow flex items-center justify-between gap-4"
             >
               <div>
                 <p className="font-mono-tabular font-bold text-sm text-[#212121]">
@@ -2389,9 +2637,33 @@ const AdminCouponsSection: React.FC<{
                   Min Order: ₹{c.minOrderAmount} · Redeemed: {c.usedCount}/{c.usageLimit}
                 </p>
               </div>
-              <span className="text-xs font-bold text-[#388E3C] uppercase">
-                {c.active ? 'Active' : 'Inactive'}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpsert({
+                      ...c,
+                      active: !c.active,
+                      updatedAt: new Date().toISOString(),
+                    })
+                  }
+                  className={`px-2.5 py-1 text-xs font-bold uppercase rounded-sm cursor-pointer ${
+                    c.active
+                      ? 'bg-[#E8F5E9] text-[#388E3C]'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {c.active ? 'Active' : 'Paused'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemove(c.id)}
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-sm cursor-pointer"
+                  title="Delete Coupon"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -2496,65 +2768,135 @@ const AdminCouponsSection: React.FC<{
 };
 
 /* ============================================================================
- * 9. ADMIN REVIEWS MODERATION SECTION
+ * 9. ADMIN REVIEWS MODERATION SECTION (ADD / DELETE)
  * ==========================================================================*/
 const AdminReviewsSection: React.FC<{
-  reviews: {
-    id: string;
-    productId: string;
-    authorName: string;
-    rating: number;
-    title: string;
-    comment: string;
-    createdAt: string;
-  }[];
+  reviews: Review[];
   products: Product[];
-  showToast: (t: string, type?: 'success' | 'error' | 'info') => void;
-}> = ({ reviews, products, showToast }) => {
-  const handleDeleteReview = async (id: string) => {
-    await deleteRecordFromUserFirebase('reviews', id);
-    try {
-      await deleteDoc(doc(db, 'reviews', id));
-    } catch {
-      // synced via RTDB
-    }
-    showToast('Review removed.', 'info');
+  onUpsert: (review: Review) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
+}> = ({ reviews, products, onUpsert, onRemove }) => {
+  const [productId, setProductId] = useState(products[0]?.id || '');
+  const [authorName, setAuthorName] = useState('');
+  const [rating, setRating] = useState(5);
+  const [title, setTitle] = useState('');
+  const [comment, setComment] = useState('');
+
+  const handleAddReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authorName.trim() || !title.trim() || !comment.trim()) return;
+    const record: Review = {
+      id: `rev_${Date.now()}`,
+      productId: productId || products[0]?.id || 'prod_blanc_edp',
+      uid: 'admin_verified',
+      authorName: authorName.trim(),
+      rating: Number(rating),
+      title: title.trim(),
+      comment: comment.trim(),
+      verifiedPurchase: true,
+      createdAt: new Date().toISOString(),
+    };
+    await onUpsert(record);
+    setAuthorName('');
+    setTitle('');
+    setComment('');
   };
 
   return (
-    <div className="space-y-4">
-      <div className="bg-white p-5 rounded-sm fk-card-shadow">
-        <h1 className="text-xl font-bold text-[#212121]">
-          Customer Reviews ({reviews.length})
-        </h1>
-      </div>
-      <div className="space-y-3">
-        {reviews.map((rev) => {
-          const prod = products.find((p) => p.id === rev.productId);
-          return (
-            <div
-              key={rev.id}
-              className="p-5 bg-white rounded-sm fk-card-shadow flex items-start justify-between gap-4"
-            >
-              <div className="space-y-1">
-                <p className="text-xs font-mono-tabular text-[#388E3C] font-bold">
-                  {rev.rating} ★ · {rev.authorName} on {prod?.name || rev.productId}
-                </p>
-                <p className="text-sm font-bold text-[#212121]">{rev.title}</p>
-                <p className="text-xs text-[#565656]">{rev.comment}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleDeleteReview(rev.id)}
-                className="text-xs text-red-600 font-bold hover:underline inline-flex items-center gap-1 shrink-0 cursor-pointer"
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="lg:col-span-7 space-y-4">
+        <div className="bg-white p-5 rounded-sm fk-card-shadow">
+          <h1 className="text-xl font-bold text-[#212121]">
+            Customer Reviews ({reviews.length})
+          </h1>
+        </div>
+        <div className="space-y-3">
+          {reviews.map((rev) => {
+            const prod = products.find((p) => p.id === rev.productId);
+            return (
+              <div
+                key={rev.id}
+                className="p-5 bg-white rounded-sm fk-card-shadow flex items-start justify-between gap-4"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete</span>
-              </button>
-            </div>
-          );
-        })}
+                <div className="space-y-1">
+                  <p className="text-xs font-mono-tabular text-[#388E3C] font-bold">
+                    {rev.rating} ★ · {rev.authorName} on {prod?.name || rev.productId}
+                  </p>
+                  <p className="text-sm font-bold text-[#212121]">{rev.title}</p>
+                  <p className="text-xs text-[#565656]">{rev.comment}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(rev.id)}
+                  className="text-xs text-red-600 font-bold hover:underline inline-flex items-center gap-1 shrink-0 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      <form
+        onSubmit={handleAddReview}
+        className="lg:col-span-5 bg-white rounded-sm fk-card-shadow p-6 space-y-4 self-start"
+      >
+        <h2 className="text-lg font-bold text-[#212121]">
+          Add Verified Review
+        </h2>
+        <select
+          value={productId}
+          onChange={(e) => setProductId(e.target.value)}
+          className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs bg-white"
+        >
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <div className="grid grid-cols-2 gap-3">
+          <input
+            required
+            placeholder="Customer Name"
+            value={authorName}
+            onChange={(e) => setAuthorName(e.target.value)}
+            className="border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
+          />
+          <select
+            value={rating}
+            onChange={(e) => setRating(Number(e.target.value))}
+            className="border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs bg-white font-bold"
+          >
+            <option value={5}>5 ★ (Excellent)</option>
+            <option value={4}>4 ★ (Good)</option>
+            <option value={3}>3 ★ (Average)</option>
+          </select>
+        </div>
+        <input
+          required
+          placeholder="Review Headline"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full border border-[#D6D3D1] rounded-sm px-3 py-2 text-xs"
+        />
+        <textarea
+          required
+          rows={3}
+          placeholder="Review Comment"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          className="w-full border border-[#D6D3D1] rounded-sm p-3 text-xs"
+        />
+        <button
+          type="submit"
+          className="w-full py-3 bg-[#FB641B] text-white text-xs font-bold uppercase tracking-wider rounded-sm cursor-pointer"
+        >
+          Publish Review
+        </button>
+      </form>
     </div>
   );
 };
@@ -2564,8 +2906,8 @@ const AdminReviewsSection: React.FC<{
  * ==========================================================================*/
 const AdminSettingsSection: React.FC<{
   settings: SiteSettings;
-  showToast: (t: string, type?: 'success' | 'error' | 'info') => void;
-}> = ({ settings, showToast }) => {
+  onSave: (settings: SiteSettings) => Promise<void>;
+}> = ({ settings, onSave }) => {
   const [formState, setFormState] = useState<SiteSettings>(settings);
   const [saving, setSaving] = useState(false);
 
@@ -2590,13 +2932,7 @@ const AdminSettingsSection: React.FC<{
       updatedAt: new Date().toISOString(),
     };
     try {
-      await syncRecordToUserFirebase('settings', 'global', updated);
-      try {
-        await setDoc(doc(db, 'settings', 'global'), updated);
-      } catch {
-        // synced via RTDB
-      }
-      showToast('Storefront & shipping settings synced to Firebase!');
+      await onSave(updated);
     } finally {
       setSaving(false);
     }
@@ -2807,7 +3143,7 @@ const AdminSettingsSection: React.FC<{
         </p>
 
         <div className="bg-[#172337] text-[#E0E0E0] p-4 rounded-sm font-mono-tabular text-[11px] space-y-1.5 overflow-x-auto">
-          <p className="text-[#FFE500] font-bold">// Active Firebase Config</p>
+          <p className="text-[#FFE500] font-bold">Active Firebase Config</p>
           <p>projectId: &quot;{USER_FIREBASE_CONFIG.projectId}&quot;</p>
           <p>authDomain: &quot;{USER_FIREBASE_CONFIG.authDomain}&quot;</p>
           <p>databaseURL: &quot;{USER_FIREBASE_CONFIG.databaseURL}&quot;</p>
@@ -2817,7 +3153,7 @@ const AdminSettingsSection: React.FC<{
         </div>
 
         <div className="p-3 bg-[#E8F5E9] border border-[#C8E6C9] rounded-sm text-xs text-[#2E7D32] font-semibold">
-          ✓ All Admin product edits, stock updates, categories, banners, coupons, and orders sync automatically to your Realtime Database &amp; Firestore.
+          ✓ All Admin product edits, stock updates, categories, banners, coupons, reviews, and orders sync automatically.
         </div>
       </div>
     </div>

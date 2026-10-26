@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { get, onValue, ref as rtdbRef } from 'firebase/database';
 import {
+  Eye,
+  EyeOff,
   Heart,
+  Lock,
   LogOut,
+  Mail,
   MapPin,
   Package,
+  Phone,
   Printer,
   RotateCcw,
   Search,
@@ -18,41 +24,263 @@ import {
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { OrderTimeline } from '../components/OrderTimeline';
-import { db, handleFirestoreError } from '../lib/firebase';
-import { updateOrderStatusWithEvent } from '../lib/orders';
+import { db, rtdb } from '../lib/firebase';
 import {
-  OperationType,
+  getLocalOrderEvents,
+  getLocalOrders,
+  updateOrderStatusWithEvent,
+} from '../lib/orders';
+import {
   Order,
   OrderEvent,
   ORDER_STATUS_LABELS,
 } from '../types';
 import { getOptimizedImageUrl } from '../lib/cloudinary';
 
+export const EmailAuthCard: React.FC<{
+  onSuccess?: () => void;
+  compact?: boolean;
+}> = ({ onSuccess, compact = false }) => {
+  const { loginWithEmail, registerWithEmail, loginWithGoogle } = useStore();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+
+    if (!email.trim() || !password) {
+      setErrorMsg('Please enter your email address and password.');
+      return;
+    }
+    if (password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters.');
+      return;
+    }
+    if (mode === 'register' && !fullName.trim()) {
+      setErrorMsg('Please enter your full name to create an account.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const profile =
+        mode === 'login'
+          ? await loginWithEmail(email, password)
+          : await registerWithEmail(email, password, fullName, phone);
+
+      if (profile && onSuccess) {
+        onSuccess();
+      }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Authentication failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Mode Switcher Tabs */}
+      <div className="grid grid-cols-2 bg-[#F1F3F6] p-1 rounded-xs border border-[#E0E0E0]">
+        <button
+          type="button"
+          onClick={() => {
+            setMode('login');
+            setErrorMsg(null);
+          }}
+          className={`py-2.5 text-xs font-extrabold uppercase tracking-wider rounded-xs transition-colors cursor-pointer ${
+            mode === 'login'
+              ? 'bg-[#2874F0] text-white shadow-xs'
+              : 'text-[#555555] hover:text-[#212121]'
+          }`}
+        >
+          Email Login
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode('register');
+            setErrorMsg(null);
+          }}
+          className={`py-2.5 text-xs font-extrabold uppercase tracking-wider rounded-xs transition-colors cursor-pointer ${
+            mode === 'register'
+              ? 'bg-[#2874F0] text-white shadow-xs'
+              : 'text-[#555555] hover:text-[#212121]'
+          }`}
+        >
+          Create Account
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        {mode === 'register' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#555555] mb-1">
+                Full Name *
+              </label>
+              <div className="relative">
+                <UserIcon className="w-4 h-4 text-[#878787] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full border border-[#D0D0D0] focus:border-[#2874F0] rounded-xs pl-9 pr-3 py-2.5 text-xs text-[#212121] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#555555] mb-1">
+                Mobile Number
+              </label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-[#878787] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="10-digit mobile number"
+                  className="w-full border border-[#D0D0D0] focus:border-[#2874F0] rounded-xs pl-9 pr-3 py-2.5 text-xs font-mono-tabular text-[#212121] focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#555555] mb-1">
+            Email Address *
+          </label>
+          <div className="relative">
+            <Mail className="w-4 h-4 text-[#878787] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full border border-[#D0D0D0] focus:border-[#2874F0] rounded-xs pl-9 pr-3 py-2.5 text-xs text-[#212121] focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#555555] mb-1">
+            Password * (min 6 characters)
+          </label>
+          <div className="relative">
+            <Lock className="w-4 h-4 text-[#878787] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={
+                mode === 'login'
+                  ? 'Enter your password'
+                  : 'Create a strong password (min 6 chars)'
+              }
+              className="w-full border border-[#D0D0D0] focus:border-[#2874F0] rounded-xs pl-9 pr-10 py-2.5 text-xs text-[#212121] focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#878787] hover:text-[#212121] cursor-pointer"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        {errorMsg && (
+          <div className="p-2.5 bg-red-50 border border-red-200 rounded-xs text-xs text-red-700 font-semibold">
+            {errorMsg}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={busy}
+          className="w-full py-3.5 bg-[#FB641B] hover:bg-[#E85812] disabled:opacity-60 text-white text-xs sm:text-sm font-extrabold uppercase tracking-wider rounded-xs shadow-xs transition-colors cursor-pointer"
+        >
+          {busy
+            ? mode === 'login'
+              ? 'Signing In...'
+              : 'Creating Account...'
+            : mode === 'login'
+            ? 'Login with Email & Password'
+            : 'Create Cartlane Account'}
+        </button>
+      </form>
+
+      <div className="relative flex items-center justify-center py-1">
+        <div className="border-t border-[#E0E0E0] w-full" />
+        <span className="bg-white px-3 text-[11px] font-bold uppercase text-[#878787]">
+          OR
+        </span>
+        <div className="border-t border-[#E0E0E0] w-full" />
+      </div>
+
+      <button
+        type="button"
+        onClick={async () => {
+          const p = await loginWithGoogle();
+          if (p && onSuccess) onSuccess();
+        }}
+        className="w-full py-3 border border-[#2874F0] text-[#2874F0] hover:bg-[#E3F2FD]/40 text-xs font-extrabold uppercase tracking-wider rounded-xs transition-colors cursor-pointer"
+      >
+        Continue with Google Account
+      </button>
+
+      {!compact && (
+        <p className="text-[11px] text-[#878787] leading-relaxed">
+          New to Cartlane? If you sign in with a new email and password, your Cartlane account is automatically created and synced.
+        </p>
+      )}
+    </div>
+  );
+};
+
 export const LoginPage: React.FC = () => {
-  const { user, isAdmin, loginWithGoogle } = useStore();
+  const { user, userProfile } = useStore();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user) {
-      navigate(isAdmin ? '/admin' : '/account');
+    if (user || userProfile) {
+      navigate('/account');
     }
-  }, [user, isAdmin]);
+  }, [user, userProfile, navigate]);
 
   return (
-    <main className="max-w-4xl mx-auto px-3 sm:px-6 pt-6 pb-24 md:py-14">
+    <main className="max-w-4xl mx-auto px-3 sm:px-6 pt-6 pb-24 md:py-12">
       <div className="grid grid-cols-1 md:grid-cols-12 border border-[#E0E0E0] bg-white rounded-xs overflow-hidden shadow-md">
         {/* Left: Iconic Flipkart Blue Login Sidebar */}
         <div className="md:col-span-5 bg-[#2874F0] text-white p-6 sm:p-10 flex flex-col justify-between space-y-6">
           <div className="space-y-3">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#FFE500]">
+              Cartlane Official Store
+            </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-              Login
+              Login / Sign Up
             </h1>
             <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
-              Get access to your Orders, Wishlist, Saved Addresses, and exclusive Cartlane privilege coupons.
+              Sign in with your Email &amp; Password or Google account to access your Orders, Wishlist, Saved Addresses, and exclusive Cartlane privilege coupons.
             </p>
           </div>
 
-          <div className="space-y-2.5 pt-4 border-t border-white/20 text-xs text-white/95">
+          <div className="space-y-3 pt-4 border-t border-white/20 text-xs text-white/95">
             <div className="flex items-center gap-2">
               <Tag className="w-4 h-4 text-[#FFE500] shrink-0" />
               <span>Extra 15% OFF with code ROYAL15</span>
@@ -65,42 +293,28 @@ export const LoginPage: React.FC = () => {
               <Heart className="w-4 h-4 text-[#FFE500] shrink-0" />
               <span>Synced Cart &amp; Wishlist across devices</span>
             </div>
+            <div className="pt-2">
+              <Link
+                to="/admin"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#FFE500] text-[#212121] text-xs font-extrabold uppercase tracking-wider rounded-xs hover:bg-white transition-colors"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Open Admin Panel →</span>
+              </Link>
+            </div>
           </div>
         </div>
 
-        {/* Right: Sign-In Action */}
-        <div className="md:col-span-7 p-6 sm:p-10 flex flex-col justify-between space-y-8 bg-white">
-          <div className="space-y-4">
-            <p className="text-xs font-extrabold uppercase tracking-wider text-[#2874F0]">
-              Cartlane Verified Account
-            </p>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-[#212121]">
-              Continue with Google Authentication
-            </h2>
-            <p className="text-xs text-[#878787] leading-relaxed">
-              By continuing, you agree to Cartlane&apos;s{' '}
-              <Link to="/policies/terms" className="text-[#2874F0] hover:underline">
-                Terms of Use
-              </Link>{' '}
-              and{' '}
-              <Link to="/policies/privacy" className="text-[#2874F0] hover:underline">
-                Privacy Policy
-              </Link>
-              .
-            </p>
+        {/* Right: Email & Password + Google Sign-In Action */}
+        <div className="md:col-span-7 p-6 sm:p-10 flex flex-col justify-between space-y-6 bg-white">
+          <EmailAuthCard onSuccess={() => navigate('/account')} />
 
-            <button
-              type="button"
-              onClick={loginWithGoogle}
-              className="w-full py-3.5 bg-[#FB641B] hover:bg-[#E85812] text-white text-xs sm:text-sm font-extrabold uppercase tracking-wider rounded-xs shadow-sm transition-colors"
-            >
-              Sign In with Google
-            </button>
-          </div>
-
-          <div className="pt-4 border-t border-[#F0F0F0] flex items-center justify-between text-xs font-bold text-[#2874F0]">
+          <div className="pt-4 border-t border-[#F0F0F0] flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[#2874F0]">
             <Link to="/track-order" className="hover:underline">
               Track an Existing Order →
+            </Link>
+            <Link to="/admin" className="text-[#388E3C] hover:underline">
+              Seller Hub / Admin Panel →
             </Link>
             <Link to="/products" className="hover:underline">
               Browse Store →
@@ -116,11 +330,9 @@ export const AccountDashboardPage: React.FC = () => {
   const {
     user,
     userProfile,
-    isAdmin,
     addresses,
     myOrders,
     wishlistIds,
-    loginWithGoogle,
     logout,
     updateCustomerProfile,
     saveCustomerAddress,
@@ -166,23 +378,30 @@ export const AccountDashboardPage: React.FC = () => {
     }
   }, [userProfile]);
 
-  if (!user) {
+  const activeEmail = userProfile?.email || user?.email || '';
+  const activeName = userProfile?.displayName || user?.displayName || 'Customer';
+
+  if (!user && !userProfile) {
     return (
-      <main className="max-w-lg mx-auto px-4 py-16 text-center">
-        <div className="p-8 bg-white border border-[#E0E0E0] rounded-xs space-y-4 shadow-2xs">
-          <h1 className="text-2xl font-extrabold text-[#212121]">
-            Login to view your Account
-          </h1>
-          <p className="text-xs text-[#878787]">
-            Sign in with your Google account to manage orders, addresses, and profile settings.
-          </p>
-          <button
-            type="button"
-            onClick={loginWithGoogle}
-            className="px-8 py-3 bg-[#FB641B] text-white text-xs font-extrabold uppercase tracking-wider rounded-xs"
-          >
-            Login with Google
-          </button>
+      <main className="max-w-xl mx-auto px-3 sm:px-6 pt-6 pb-24 md:py-12">
+        <div className="p-6 sm:p-8 bg-white border border-[#E0E0E0] rounded-xs space-y-5 shadow-xs">
+          <div className="flex items-center justify-between border-b border-[#F0F0F0] pb-4">
+            <div>
+              <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#2874F0]">
+                Cartlane Customer Account
+              </p>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-[#212121]">
+                Sign In with Email &amp; Password
+              </h1>
+            </div>
+            <Link
+              to="/admin"
+              className="px-3.5 py-2 bg-[#2874F0] text-white text-xs font-extrabold uppercase rounded-xs shrink-0"
+            >
+              Admin Panel
+            </Link>
+          </div>
+          <EmailAuthCard />
         </div>
       </main>
     );
@@ -198,7 +417,7 @@ export const AccountDashboardPage: React.FC = () => {
     if (!/^[0-9]{6}$/.test(addrForm.pinCode)) return;
     await saveCustomerAddress({
       ...addrForm,
-      email: user.email || '',
+      email: activeEmail,
     });
     setAddrForm({
       fullName: '',
@@ -221,14 +440,14 @@ export const AccountDashboardPage: React.FC = () => {
           {/* Hello User Card */}
           <div className="p-4 bg-white border border-[#E0E0E0] rounded-xs flex items-center gap-3 shadow-2xs">
             <div className="w-12 h-12 rounded-full bg-[#2874F0] text-white font-extrabold text-lg flex items-center justify-center shrink-0">
-              {(userProfile?.displayName || user.displayName || 'U')[0].toUpperCase()}
+              {(activeName || 'U')[0].toUpperCase()}
             </div>
             <div className="min-w-0">
               <p className="text-[11px] text-[#878787]">Hello,</p>
               <p className="text-sm font-extrabold text-[#212121] truncate">
-                {userProfile?.displayName || user.displayName}
+                {activeName}
               </p>
-              <p className="text-[11px] text-[#878787] truncate">{user.email}</p>
+              <p className="text-[11px] text-[#878787] truncate">{activeEmail}</p>
             </div>
           </div>
 
@@ -237,7 +456,7 @@ export const AccountDashboardPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('orders')}
-              className={`w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider transition-colors ${
+              className={`w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider transition-colors cursor-pointer ${
                 activeTab === 'orders'
                   ? 'bg-[#E3F2FD]/50 text-[#2874F0]'
                   : 'text-[#212121] hover:bg-[#F8F9FA]'
@@ -253,7 +472,7 @@ export const AccountDashboardPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('addresses')}
-              className={`w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider transition-colors ${
+              className={`w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider transition-colors cursor-pointer ${
                 activeTab === 'addresses'
                   ? 'bg-[#E3F2FD]/50 text-[#2874F0]'
                   : 'text-[#212121] hover:bg-[#F8F9FA]'
@@ -269,7 +488,7 @@ export const AccountDashboardPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveTab('profile')}
-              className={`w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider transition-colors ${
+              className={`w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider transition-colors cursor-pointer ${
                 activeTab === 'profile'
                   ? 'bg-[#E3F2FD]/50 text-[#2874F0]'
                   : 'text-[#212121] hover:bg-[#F8F9FA]'
@@ -293,23 +512,21 @@ export const AccountDashboardPage: React.FC = () => {
               <span>›</span>
             </Link>
 
-            {isAdmin && (
-              <Link
-                to="/admin"
-                className="w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-[#388E3C] bg-[#E8F5E9]/40 hover:bg-[#E8F5E9]"
-              >
-                <span className="flex items-center gap-2.5">
-                  <Shield className="w-4 h-4 text-[#388E3C]" />
-                  <span>Admin Seller Console</span>
-                </span>
-                <span>›</span>
-              </Link>
-            )}
+            <Link
+              to="/admin"
+              className="w-full p-4 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-[#388E3C] bg-[#E8F5E9]/40 hover:bg-[#E8F5E9]"
+            >
+              <span className="flex items-center gap-2.5">
+                <Shield className="w-4 h-4 text-[#388E3C]" />
+                <span>Open Admin Seller Panel</span>
+              </span>
+              <span>›</span>
+            </Link>
 
             <button
               type="button"
               onClick={logout}
-              className="w-full p-4 flex items-center gap-2.5 text-xs font-extrabold uppercase tracking-wider text-red-600 hover:bg-red-50"
+              className="w-full p-4 flex items-center gap-2.5 text-xs font-extrabold uppercase tracking-wider text-red-600 hover:bg-red-50 cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
@@ -440,7 +657,7 @@ export const AccountDashboardPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => deleteCustomerAddress(addr.id)}
-                          className="text-xs text-red-600 hover:underline shrink-0"
+                          className="text-xs text-red-600 hover:underline shrink-0 cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -515,7 +732,7 @@ export const AccountDashboardPage: React.FC = () => {
                   </div>
                   <button
                     type="submit"
-                    className="w-full py-2.5 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider rounded-xs"
+                    className="w-full py-2.5 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider rounded-xs cursor-pointer"
                   >
                     Save Address
                   </button>
@@ -547,6 +764,17 @@ export const AccountDashboardPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-[#878787] mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  disabled
+                  value={activeEmail}
+                  className="w-full border border-[#E0E0E0] bg-[#F8F9FA] text-[#878787] px-3 py-2 text-xs rounded-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#878787] mb-1">
                   Mobile Number
                 </label>
                 <input
@@ -559,7 +787,7 @@ export const AccountDashboardPage: React.FC = () => {
               </div>
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider rounded-xs"
+                className="px-6 py-2.5 bg-[#2874F0] text-white text-xs font-bold uppercase tracking-wider rounded-xs cursor-pointer"
               >
                 Save Changes
               </button>
@@ -573,51 +801,86 @@ export const AccountDashboardPage: React.FC = () => {
 
 export const OrderDetailPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
-  const { user, userProfile, isAdmin, showToast } = useStore();
+  const { user, userProfile, isAdmin, myOrders, showToast } = useStore();
   const [order, setOrder] = useState<Order | null>(null);
   const [events, setEvents] = useState<OrderEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionBusy, setActionBusy] = useState(false);
 
   useEffect(() => {
-    if (!orderId || !user) {
+    if (!orderId) {
       setLoading(false);
       return;
     }
 
+    // 1. Check local / context orders first for instant response
+    const localFound =
+      myOrders.find((o) => o.id === orderId) ||
+      getLocalOrders().find((o) => o.id === orderId);
+    if (localFound) {
+      setOrder(localFound);
+      setEvents(getLocalOrderEvents(orderId));
+      setLoading(false);
+    }
+
+    // 2. Subscribe to RTDB order & events
+    const unsubRtdbOrder = onValue(
+      rtdbRef(rtdb, `orders/${orderId}`),
+      (snap) => {
+        if (snap.exists()) {
+          setOrder(snap.val() as Order);
+          setLoading(false);
+        }
+      },
+      () => {
+        setLoading(false);
+      }
+    );
+
+    const unsubRtdbEvents = onValue(
+      rtdbRef(rtdb, `order_events/${orderId}`),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.val() as Record<string, OrderEvent>;
+          setEvents(Object.values(val));
+        }
+      },
+      () => {}
+    );
+
+    // 3. Also subscribe to Firestore if available
     const orderRef = doc(db, 'orders', orderId);
-    const unsubOrder = onSnapshot(
+    const unsubFsOrder = onSnapshot(
       orderRef,
       (snap) => {
         if (snap.exists()) {
           setOrder(snap.data() as Order);
-        } else {
-          setOrder(null);
         }
         setLoading(false);
       },
-      (err) => {
+      () => {
         setLoading(false);
-        handleFirestoreError(err, OperationType.GET, `orders/${orderId}`);
       }
     );
 
     const eventsRef = collection(db, 'orders', orderId, 'events');
-    const unsubEvents = onSnapshot(
+    const unsubFsEvents = onSnapshot(
       eventsRef,
       (snap) => {
-        setEvents(snap.docs.map((d) => d.data() as OrderEvent));
+        if (!snap.empty) {
+          setEvents(snap.docs.map((d) => d.data() as OrderEvent));
+        }
       },
-      (err) => {
-        console.warn('Order events listener notice:', err.message);
-      }
+      () => {}
     );
 
     return () => {
-      unsubOrder();
-      unsubEvents();
+      unsubRtdbOrder();
+      unsubRtdbEvents();
+      unsubFsOrder();
+      unsubFsEvents();
     };
-  }, [orderId, user]);
+  }, [orderId, myOrders]);
 
   if (loading) {
     return (
@@ -627,14 +890,14 @@ export const OrderDetailPage: React.FC = () => {
     );
   }
 
-  if (!user || !order) {
+  if (!order) {
     return (
       <main className="max-w-lg mx-auto px-6 py-20 text-center space-y-4">
         <h1 className="text-2xl font-extrabold text-[#212121]">
-          Order Not Found or Access Restricted
+          Order Not Found
         </h1>
         <p className="text-xs text-[#878787]">
-          Only the authenticated order owner or an authorized Cartlane administrator can view this order.
+          We could not find an order matching ID &ldquo;{orderId}&rdquo;.
         </p>
         <Link
           to="/account"
@@ -651,7 +914,9 @@ export const OrderDetailPage: React.FC = () => {
   );
   const canReturn = order.status === 'DELIVERED';
 
-  const handleCustomerAction = async (targetStatus: 'CANCELLATION_REQUESTED' | 'RETURN_REQUESTED') => {
+  const handleCustomerAction = async (
+    targetStatus: 'CANCELLATION_REQUESTED' | 'RETURN_REQUESTED'
+  ) => {
     setActionBusy(true);
     try {
       await updateOrderStatusWithEvent({
@@ -661,10 +926,13 @@ export const OrderDetailPage: React.FC = () => {
           targetStatus === 'CANCELLATION_REQUESTED'
             ? 'Customer requested order cancellation prior to shipment dispatch.'
             : 'Customer requested a 7-day return pickup after delivery.',
-        actorName: userProfile?.displayName || user.displayName || 'Customer',
+        actorName:
+          userProfile?.displayName || user?.displayName || order.customerName || 'Customer',
         isAdminActor: isAdmin,
         location: 'Customer Account Portal',
       });
+      setOrder({ ...order, status: targetStatus, updatedAt: new Date().toISOString() });
+      setEvents(getLocalOrderEvents(order.id));
       showToast(
         targetStatus === 'CANCELLATION_REQUESTED'
           ? 'Cancellation request recorded.'
@@ -710,7 +978,7 @@ export const OrderDetailPage: React.FC = () => {
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#E0E0E0] bg-white text-xs font-bold uppercase text-[#2874F0] hover:border-[#2874F0] rounded-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#E0E0E0] bg-white text-xs font-bold uppercase text-[#2874F0] hover:border-[#2874F0] rounded-xs cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Download Invoice</span>
@@ -721,7 +989,7 @@ export const OrderDetailPage: React.FC = () => {
               type="button"
               disabled={actionBusy}
               onClick={() => handleCustomerAction('CANCELLATION_REQUESTED')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-600 text-red-600 text-xs font-bold uppercase hover:bg-red-50 rounded-xs"
+              className="inline-flex items-center gap-1.5 px-4 py-2 border border-red-600 text-red-600 text-xs font-bold uppercase hover:bg-red-50 rounded-xs cursor-pointer"
             >
               <XCircle className="w-3.5 h-3.5" />
               <span>Cancel Order</span>
@@ -733,7 +1001,7 @@ export const OrderDetailPage: React.FC = () => {
               type="button"
               disabled={actionBusy}
               onClick={() => handleCustomerAction('RETURN_REQUESTED')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#2874F0] text-[#2874F0] text-xs font-bold uppercase hover:bg-[#E3F2FD]/30 rounded-xs"
+              className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#2874F0] text-[#2874F0] text-xs font-bold uppercase hover:bg-[#E3F2FD]/30 rounded-xs cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Return Item</span>
@@ -829,7 +1097,7 @@ export const OrderDetailPage: React.FC = () => {
 };
 
 export const TrackOrderLookupPage: React.FC = () => {
-  const { user, myOrders, loginWithGoogle } = useStore();
+  const { user, userProfile, myOrders } = useStore();
   const [orderIdInput, setOrderIdInput] = useState('');
   const [lookupError, setLookupError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -837,24 +1105,41 @@ export const TrackOrderLookupPage: React.FC = () => {
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLookupError(null);
-    const cleaned = orderIdInput.trim();
+    const cleaned = orderIdInput.trim().toUpperCase();
     if (!cleaned) return;
-    if (!user) {
-      setLookupError('Please sign in with Google so we can verify order ownership.');
+
+    // Check local orders first
+    const localFound =
+      myOrders.find((o) => o.id.toUpperCase() === cleaned) ||
+      getLocalOrders().find((o) => o.id.toUpperCase() === cleaned);
+    if (localFound) {
+      navigate(`/account/orders/${localFound.id}`);
       return;
     }
+
+    // Check RTDB
     try {
-      const snap = await getDoc(doc(db, 'orders', cleaned));
-      if (!snap.exists()) {
-        setLookupError(`No order found matching ID "${cleaned}".`);
+      const rtdbSnap = await get(rtdbRef(rtdb, `orders/${cleaned}`));
+      if (rtdbSnap.exists()) {
+        navigate(`/account/orders/${cleaned}`);
         return;
       }
-      navigate(`/account/orders/${cleaned}`);
     } catch {
-      setLookupError(
-        `Unable to access Order "${cleaned}". Ensure the Order ID belongs to your signed-in account.`
-      );
+      // continue
     }
+
+    // Check Firestore
+    try {
+      const snap = await getDoc(doc(db, 'orders', cleaned));
+      if (snap.exists()) {
+        navigate(`/account/orders/${cleaned}`);
+        return;
+      }
+    } catch {
+      // continue
+    }
+
+    setLookupError(`No order found matching ID "${cleaned}". Please check your Order ID.`);
   };
 
   return (
@@ -886,7 +1171,7 @@ export const TrackOrderLookupPage: React.FC = () => {
             </div>
             <button
               type="submit"
-              className="px-8 py-3 bg-[#FB641B] hover:bg-[#E85812] text-white text-xs font-extrabold uppercase tracking-wider rounded-xs transition-colors"
+              className="px-8 py-3 bg-[#FB641B] hover:bg-[#E85812] text-white text-xs font-extrabold uppercase tracking-wider rounded-xs transition-colors cursor-pointer"
             >
               Track Order
             </button>
@@ -894,22 +1179,21 @@ export const TrackOrderLookupPage: React.FC = () => {
 
           {lookupError && <p className="text-xs text-red-600 font-semibold">{lookupError}</p>}
 
-          {!user && (
+          {!user && !userProfile && (
             <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#878787] border-t border-[#F0F0F0]">
-              <span>Login to view and track your recent Cartlane orders automatically</span>
-              <button
-                type="button"
-                onClick={loginWithGoogle}
+              <span>Login with Email &amp; Password to view all your recent Cartlane orders</span>
+              <Link
+                to="/login"
                 className="font-extrabold text-[#2874F0] hover:underline self-start sm:self-auto"
               >
-                Login with Google →
-              </button>
+                Login / Sign Up →
+              </Link>
             </div>
           )}
         </form>
       </div>
 
-      {user && myOrders.length > 0 && (
+      {myOrders.length > 0 && (
         <div className="bg-white border border-[#E0E0E0] rounded-xs p-5 sm:p-6 space-y-4 shadow-2xs">
           <h2 className="text-sm font-extrabold uppercase tracking-wider text-[#212121]">
             Your Recent Orders

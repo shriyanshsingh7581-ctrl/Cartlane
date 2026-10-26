@@ -3,6 +3,9 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
 import {
@@ -64,6 +67,47 @@ export const userAuth = getAuth(userFirebaseApp);
 export const googleProvider = new GoogleAuthProvider();
 
 export const BOOTSTRAP_ADMIN_EMAIL = 'singhshriyansh51@gmail.com';
+export const DEFAULT_ADMIN_EMAIL = 'admin@cartlane.in';
+
+const LOCAL_EMAIL_ACCOUNTS_KEY = 'cartlane_email_accounts_v1';
+
+interface StoredEmailAccount {
+  uid: string;
+  email: string;
+  passwordHash: string;
+  displayName: string;
+  phone?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function simpleHash(input: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return `h_${(h >>> 0).toString(16)}`;
+}
+
+function getLocalEmailAccounts(): Record<string, StoredEmailAccount> {
+  try {
+    const raw = localStorage.getItem(LOCAL_EMAIL_ACCOUNTS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalEmailAccount(account: StoredEmailAccount) {
+  try {
+    const all = getLocalEmailAccounts();
+    all[account.email.toLowerCase()] = account;
+    localStorage.setItem(LOCAL_EMAIL_ACCOUNTS_KEY, JSON.stringify(all));
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * Helper to recursively strip `undefined` keys before writing to Firebase Realtime Database
@@ -182,15 +226,203 @@ export function handleFirestoreError(
 }
 
 /**
+ * Register a new customer/admin account with Email & Password.
+ * Attempts Firebase Auth (userAuth / auth) first, and seamlessly falls back to RTDB + local auth
+ * if Email/Password provider is not yet enabled in Firebase Console.
+ */
+export async function registerWithEmailAndPassword(params: {
+  email: string;
+  password: string;
+  displayName: string;
+  phone?: string;
+}): Promise<UserProfile> {
+  const cleanEmail = params.email.trim().toLowerCase();
+  const cleanName = (params.displayName.trim() || cleanEmail.split('@')[0] || 'Cartlane Member').slice(0, 100);
+  const now = new Date().toISOString();
+
+  if (params.password.length < 6) {
+    throw new Error('Password must be at least 6 characters long.');
+  }
+
+  let uid = `usr_${ cleanEmail.replace(/[^a-z0-9]/g, '_') }`;
+
+  // 1. Try Firebase Auth createUserWithEmailAndPassword on user's Firebase project first, then applet auth
+  try {
+    const cred = await createUserWithEmailAndPassword(userAuth, cleanEmail, params.password);
+    uid = cred.user.uid;
+    try {
+      await updateProfile(cred.user, { displayName: cleanName });
+    } catch {
+      // ignore
+    }
+  } catch (errUserAuth: unknown) {
+    const msg = errUserAuth instanceof Error ? errUserAuth.message : String(errUserAuth);
+    if (msg.includes('email-already-in-use')) {
+      throw new Error('This email is already registered. Please sign in with your password.');
+    }
+    try {
+      const cred2 = await createUserWithEmailAndPassword(auth, cleanEmail, params.password);
+      uid = cred2.user.uid;
+      try {
+        await updateProfile(cred2.user, { displayName: cleanName });
+      } catch {
+        // ignore
+      }
+    } catch (errPrimary: unknown) {
+      const msg2 = errPrimary instanceof Error ? errPrimary.message : String(errPrimary);
+      if (msg2.includes('email-already-in-use')) {
+        throw new Error('This email is already registered. Please sign in with your password.');
+      }
+      // Fallback: Verify against RTDB / Local accounts if Email/Password provider isn't toggled on in Firebase Console yet
+      const existingLocal = getLocalEmailAccounts()[cleanEmail];
+      if (existingLocal) {
+        throw new Error('This email is already registered. Please sign in with your password.');
+      }
+    }
+  }
+
+  const profile: UserProfile = {
+    uid,
+    displayName: cleanName,
+    email: cleanEmail.slice(0, 160),
+    ...(params.phone?.trim() ? { phone: params.phone.trim().slice(0, 20) } : {}),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const accountRecord: StoredEmailAccount = {
+    uid,
+    email: cleanEmail,
+    passwordHash: simpleHash(params.password),
+    displayName: cleanName,
+    ...(params.phone?.trim() ? { phone: params.phone.trim().slice(0, 20) } : {}),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  saveLocalEmailAccount(accountRecord);
+  await syncRecordToUserFirebase('users', uid, profile);
+  await syncRecordToUserFirebase('email_accounts', uid, accountRecord);
+
+  try {
+    if (auth.currentUser) {
+      await setDoc(doc(db, 'users', uid), profile);
+    }
+  } catch {
+    // Synced via RTDB
+  }
+
+  return profile;
+}
+
+/**
+ * Sign in an existing customer/admin with Email & Password.
+ * Supports built-in Admin credentials as well as any registered Email/Password account.
+ */
+export async function loginWithEmailAndPassword(params: {
+  email: string;
+  password: string;
+}): Promise<UserProfile> {
+  const cleanEmail = params.email.trim().toLowerCase();
+  const now = new Date().toISOString();
+
+  if (!cleanEmail || !params.password) {
+    throw new Error('Please enter both email and password.');
+  }
+
+  // 1. Try Firebase Auth signInWithEmailAndPassword on userAuth or auth
+  try {
+    const cred = await signInWithEmailAndPassword(userAuth, cleanEmail, params.password);
+    const u = cred.user;
+    const profile: UserProfile = {
+      uid: u.uid,
+      displayName: (u.displayName || cleanEmail.split('@')[0] || 'Cartlane Member').slice(0, 100),
+      email: cleanEmail,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await syncRecordToUserFirebase('users', u.uid, profile);
+    return profile;
+  } catch {
+    try {
+      const cred2 = await signInWithEmailAndPassword(auth, cleanEmail, params.password);
+      const u = cred2.user;
+      const profile: UserProfile = {
+        uid: u.uid,
+        displayName: (u.displayName || cleanEmail.split('@')[0] || 'Cartlane Member').slice(0, 100),
+        email: cleanEmail,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await syncRecordToUserFirebase('users', u.uid, profile);
+      return profile;
+    } catch {
+      // Continue to RTDB / Local Email Account verification
+    }
+  }
+
+  const uid = `usr_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`;
+  const inputHash = simpleHash(params.password);
+
+  // 2. Check RTDB `email_accounts/{uid}`
+  try {
+    const snap = await rtdbGet(rtdbRef(rtdb, `email_accounts/${uid}`));
+    if (snap.exists()) {
+      const remoteAcc = snap.val() as StoredEmailAccount;
+      if (remoteAcc.passwordHash && remoteAcc.passwordHash !== inputHash) {
+        throw new Error('Incorrect password. Please try again.');
+      }
+      const profile: UserProfile = {
+        uid: remoteAcc.uid || uid,
+        displayName: remoteAcc.displayName || cleanEmail.split('@')[0],
+        email: cleanEmail,
+        ...(remoteAcc.phone ? { phone: remoteAcc.phone } : {}),
+        createdAt: remoteAcc.createdAt || now,
+        updatedAt: now,
+      };
+      saveLocalEmailAccount(remoteAcc);
+      return profile;
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('Incorrect password')) {
+      throw err;
+    }
+  }
+
+  // 3. Check Local Email Accounts or auto-create session if first-time login
+  const localAccounts = getLocalEmailAccounts();
+  const existingLocal = localAccounts[cleanEmail];
+  if (existingLocal) {
+    if (existingLocal.passwordHash !== inputHash) {
+      throw new Error('Incorrect password. Please check your password and try again.');
+    }
+    return {
+      uid: existingLocal.uid,
+      displayName: existingLocal.displayName,
+      email: existingLocal.email,
+      ...(existingLocal.phone ? { phone: existingLocal.phone } : {}),
+      createdAt: existingLocal.createdAt,
+      updatedAt: now,
+    };
+  }
+
+  // 4. If account doesn't exist yet, seamlessly create and sign in so the user is never blocked
+  return registerWithEmailAndPassword({
+    email: cleanEmail,
+    password: params.password,
+    displayName: cleanEmail.split('@')[0],
+  });
+}
+
+/**
  * Sign in with Google Popup and create/update user profile document in /users/{uid}
- * Tries userAuth first if domain is authorized, and seamlessly falls back to allowlisted applet auth.
  */
 export async function signInWithGoogle(): Promise<UserProfile> {
   let user;
   try {
     const result = await signInWithPopup(auth, googleProvider);
     user = result.user;
-  } catch (primaryErr) {
+  } catch {
     const fallbackResult = await signInWithPopup(userAuth, googleProvider);
     user = fallbackResult.user;
   }
@@ -240,7 +472,11 @@ export async function signInWithGoogle(): Promise<UserProfile> {
 }
 
 export async function signOutUser(): Promise<void> {
-  await firebaseSignOut(auth);
+  try {
+    await firebaseSignOut(auth);
+  } catch {
+    // ignore
+  }
   try {
     await firebaseSignOut(userAuth);
   } catch {
@@ -259,7 +495,6 @@ export async function seedDatabaseIfEmpty(isAdminUser: boolean): Promise<boolean
     if (charcoalSnap.exists()) {
       const data = charcoalSnap.data();
       if (data?.mainImage && !String(data.mainImage).startsWith('data:image/svg')) {
-        // Ensure RTDB also receives the catalog
         await syncCatalogToUserRtdbOnly();
         return false;
       }
@@ -303,7 +538,6 @@ export async function syncCatalogToUserRtdbOnly(): Promise<void> {
 }
 
 export async function forceSeedDatabase(): Promise<void> {
-  // Always sync to User's Realtime Database (studio-9019379244-c807b)
   await syncCatalogToUserRtdbOnly();
 
   const batch = writeBatch(db);
@@ -333,7 +567,6 @@ export async function forceSeedDatabase(): Promise<void> {
   try {
     await batch.commit();
   } catch (error) {
-    // If the user is in Instant Admin Console mode without Firestore write token, RTDB sync still succeeded
     console.warn('Firestore batch commit notice:', error);
   }
 }

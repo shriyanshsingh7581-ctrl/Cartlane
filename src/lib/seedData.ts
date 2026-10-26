@@ -177,6 +177,18 @@ export const SHOP_BY_CONCERNS: GroomingConcernItem[] = [
 
 export const INITIAL_BANNERS: Banner[] = [
   {
+    id: 'banner_hero_poster_main',
+    title: 'Cartlane Online Mega Store — Coming Soon & Grand Launch Deals!',
+    subtitle:
+      'Fashion & Lifestyle, Mobiles & Accessories, Home & Kitchen, Beauty & Personal Care, Electronics & Appliances — Fast Delivery, Secure Payments & Easy Returns.',
+    ctaText: 'Explore Mega Deals',
+    ctaLink: '/products',
+    image: '/assets/aistudio/file_000000003fa4821191761d6e8721cedc_8068ff0c.png',
+    placement: 'hero',
+    active: true,
+    order: 0,
+  },
+  {
     id: 'banner_hero_1',
     title: 'Signature Eau De Parfum Collection — Crafted for Gentlemen',
     subtitle:
